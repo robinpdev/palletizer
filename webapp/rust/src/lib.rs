@@ -1,4 +1,10 @@
-use crate::{environment::PreSorter, excel::readXLSSeqs};
+use crate::{
+    environment::{
+        AddResult::{self, NotPossible},
+        PreSorter,
+    },
+    excel::readXLSSeqs,
+};
 use std::io;
 use wasm_bindgen::prelude::*;
 
@@ -37,19 +43,19 @@ pub fn main() {
 
             println!("{}", env.stringstate());
 
-            if result == false {
-                println!("STOP after {} steps", steps);
+            // if let AddResult::NotPossible(_) = result {
+            //     println!("STOP after {} steps", steps);
 
-                // require enter to continue
-                let mut buffer = String::new();
-                let stdin = io::stdin(); // We get `Stdin` here.
-                stdin.read_line(&mut buffer);
+            //     // require enter to continue
+            //     let mut buffer = String::new();
+            //     let stdin = io::stdin(); // We get `Stdin` here.
+            //     stdin.read_line(&mut buffer);
 
-                env.reset();
-                steps = 0;
+            //     env.reset();
+            //     steps = 0;
 
-                // break;
-            }
+            //     // break;
+            // }
             steps += 1;
         }
     }
@@ -65,13 +71,13 @@ pub fn main() {
 // }
 
 #[wasm_bindgen]
-pub fn runseq() -> String {
+pub fn runseq(seq: Vec<u32>) -> String {
     let mut env: environment::PreSorter =
         PreSorter::new(4, 30, 25, 20, environment::SortStrategy::FirstFitStrategy);
 
     let mut steps = 0;
 
-    let seq = vec![10, 12, 14, 18, 25, 20];
+    // let seq = vec![10, 12, 14, 18, 25, 20];
 
     for item in seq {
         println!("add {}", item);
@@ -80,19 +86,19 @@ pub fn runseq() -> String {
 
         println!("{}", env.stringstate());
 
-        if result == false {
-            println!("STOP after {} steps", steps);
+        // if let NotPossible(_) = result {
+        //     println!("STOP after {} steps", steps);
 
-            // // require enter to continue
-            // let mut buffer = String::new();
-            // let stdin = io::stdin(); // We get `Stdin` here.
-            // stdin.read_line(&mut buffer);
+        //     // // require enter to continue
+        //     // let mut buffer = String::new();
+        //     // let stdin = io::stdin(); // We get `Stdin` here.
+        //     // stdin.read_line(&mut buffer);
 
-            env.reset();
-            steps = 0;
+        //     env.reset();
+        //     steps = 0;
 
-            break;
-        }
+        //     break;
+        // }
         steps += 1;
     }
 
