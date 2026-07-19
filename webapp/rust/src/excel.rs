@@ -7,8 +7,10 @@ pub fn readXLSSeqs(path: String) -> Option<Vec<Vec<u32>>> {
     let mut excel: Xlsx<_> = open_workbook(path).unwrap();
     if let Ok(r) = excel.worksheet_range("SPREIDING TV FILM") {
         for row in r.rows() {
-            if let Some(x) = row[1].as_i64() {
-                if x <= 25 {
+            if let Some(x) = row[1].as_i64()
+                && x <= 30
+            {
+                if x <= 30 {
                     currentseq.push(x as u32);
                 }
             } else {

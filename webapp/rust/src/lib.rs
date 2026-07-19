@@ -8,6 +8,8 @@ use crate::{
 use std::io;
 use wasm_bindgen::prelude::*;
 
+use rand::Rng;
+
 mod environment;
 mod excel;
 

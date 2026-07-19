@@ -14,21 +14,14 @@
 	});
 
 	function add(item: number) {
-		let result = env?.add(item) ?? {};
+		let result = env?.add_wasm(item) ?? {};
 		console.log(result);
 		if ('NotPossible' in result) {
 			alert("item can't be added");
-		} else if ('AddedTo' in result) {
+		} else if ('NoOutput' in result) {
 			//empty
-		} else if ('ClearandAddTo' in result) {
-			if (
-				typeof result.ClearandAddTo === 'object' &&
-				result.ClearandAddTo != null &&
-				'height' in result.ClearandAddTo &&
-				typeof result.ClearandAddTo.height === 'number'
-			) {
-				outputs.unshift(result.ClearandAddTo.height);
-			}
+		} else if ('Output' in result) {
+			outputs.unshift(result.Output);
 		}
 		refresh();
 	}
@@ -50,6 +43,13 @@
 		{/each}
 
 		{#key lastupdate}
+			<p>current output:</p>
+
+			<p style="white-space: pre-wrap; font-family: monospace; font-size: 1.2em;">
+				[{'■'.repeat(env?.currentOutput)}{' '.repeat(30 - env?.currentOutput)}] {env?.currentOutput}
+			</p>
+
+			<p>buffers:</p>
 			<p style="white-space: pre-wrap; font-family: monospace; font-size: 1.2em;">
 				{env?.stringstate()}
 			</p>
@@ -57,7 +57,9 @@
 
 		<h2>Outputs</h2>
 		{#each outputs as output, index (index)}
-			<p> [{"■".repeat(output)}{" ".repeat(30 - output)}] {output}</p>
+			<p style="white-space: pre-wrap; font-family: monospace;">
+				[{'■'.repeat(output)}{' '.repeat(30 - output)}] {output}
+			</p>
 		{/each}
 	{/await}
 </main>
