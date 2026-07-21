@@ -9,6 +9,8 @@ crate-type = ["cdylib"]
 [dependencies]
 calamine = "0.35.0"
 rand = "0.10.2"
+getrandom    = { version = "0.4.3", features = ["wasm_js"] }
 serde = "1.0.228"
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.126"
+js-sys = "0.3.103"

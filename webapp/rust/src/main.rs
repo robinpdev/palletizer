@@ -36,7 +36,7 @@ pub fn simulate_excel() {
             let result = env.add(item);
             steps += 1;
             match result {
-                AddResult::NotPossible(_) => {
+                AddResult::WarningOutput(_) => {
                     fails += 1;
                     env.reset();
                 }

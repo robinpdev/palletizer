@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::{collections::HashSet, ops::Add};
 
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -37,62 +37,93 @@ impl SortStrategy {
     fn add(&self, item: u32, buffers: &Box<[u32]>, presorter: &PreSorter) -> Box<[SortAction]> {
         match self {
             SortStrategy::FirstFitStrategy => {
-                // if item >= presorter.config.minheight && item <= presorter.config.maxheight {
-                //     return [SortAction::Pass].into();
-                // }
+                // pass if item within spec
+                if item >= presorter.config.minheight && item <= presorter.config.maxheight {
+                    return [SortAction::Pass, SortAction::Output].into();
+                }
 
                 let mut mybuffers = buffers.clone();
                 let mut currentout = 0;
                 let mut actions: Vec<SortAction> = Vec::new();
-                loop {
-                    // look to free buffers
-                    for (i, buffer) in mybuffers.clone().iter().enumerate() {
-                        if buffer > &mut 0 && currentout + buffer <= presorter.config.maxheight {
-                            // fits in output
-                            actions.push(SortAction::Pop(i));
-                            currentout += mybuffers[i];
-                            mybuffers[i] = 0;
 
-                            if currentout >= presorter.config.targetheight {
-                                actions.push(SortAction::Output);
-                                currentout = 0;
-                            }
+                // look for combinations of buffers + item that are within spec
+                let mut bag: Vec<u32> = Vec::new();
+                bag.push(item);
+                bag.extend_from_slice(buffers);
+                let mut thesum: HashSet<usize> = HashSet::new();
+                let sum = find_sum(
+                    &bag.into_boxed_slice(),
+                    presorter.config.minheight,
+                    presorter.config.maxheight,
+                    &mut thesum,
+                    0,
+                );
+
+                if let Some(_) = sum {
+                    for ind in thesum {
+                        if ind == 0 {
+                            actions.push(SortAction::Pass);
+                        } else {
+                            actions.push(SortAction::Pop(ind - 1));
+                        }
+                    }
+                    actions.push(SortAction::Output);
+                    return actions.into_boxed_slice();
+                } else {
+                    // no sum found, try to add to buffer
+                    for (i, buffer) in buffers.iter().enumerate() {
+                        if *buffer == 0 {
+                            actions.push(SortAction::AddTo(i));
+                            return actions.into_boxed_slice();
                         }
                     }
 
-                    // try to add current item
-                    if currentout + item <= presorter.config.maxheight {
-                        // if you can put it on the output, do it
-                        if currentout + item >= presorter.config.targetheight {
-                            actions.push(SortAction::Pass);
+                    // try to switch with other larger buffer
+                    for (i, buffer) in buffers.iter().enumerate() {
+                        if *buffer > item {
+                            actions.push(SortAction::Pop(i));
+                            actions.push(SortAction::AddTo(i));
                             actions.push(SortAction::Output);
                             return actions.into_boxed_slice();
-                        } else {
-                            actions.push(SortAction::Pass);
-                            return actions.into_boxed_slice();
-                        }
-                    } else {
-                        // needs to go into buffers
-                        for (i, buffer) in mybuffers.iter().enumerate() {
-                            if buffer <= &0 {
-                                // empty buffer, put it in
-                                actions.push(SortAction::AddTo(i));
-                                return actions.into_boxed_slice();
-                            }
                         }
                     }
 
-                    //no way to output target, output >= min
-                    if currentout >= presorter.config.minheight {
-                        actions.push(SortAction::Output);
-                        currentout = 0;
-                        continue;
-                    }
-
-                    return [SortAction::NotPossible].into();
+                    return [SortAction::Pass, SortAction::Output].into();
                 }
             }
         }
+    }
+}
+
+fn find_sum(
+    bag: &Box<[u32]>,
+    min: u32,
+    max: u32,
+    res: &mut HashSet<usize>,
+    ind: usize,
+) -> Option<bool> {
+    if ind >= bag.len() {
+        return None;
+    }
+    let item = bag[ind];
+    if item >= min && item <= max {
+        res.insert(ind);
+        return Some(true);
+    }
+    if (min as i32 - item as i32) < 0 as i32 {
+        return None;
+    }
+    //only if sorted
+    // if item >= max || item <= min {
+    //     return None;
+    // }
+    if let Some(with) = find_sum(bag, min - item, max - item, res, ind + 1) {
+        res.insert(ind);
+        return Some(true);
+    } else if let Some(without) = find_sum(bag, min, max, res, ind + 1) {
+        return Some(true);
+    } else {
+        return None;
     }
 }
 
@@ -153,7 +184,7 @@ impl PreSorter {
         let mut result: AddResult = AddResult::NoOutput(0);
 
         for action in actions {
-            // print!("{} - {:?}: {}", item, action, self.currentOutput);
+            print!("{} - {:?}: {}", item, action, self.currentOutput);
             match action {
                 SortAction::AddTo(bufind) => {
                     assert!(self.buffers[bufind] == 0);
@@ -171,16 +202,17 @@ impl PreSorter {
                     self.currentOutput += item;
                 }
                 SortAction::Output => {
-                    assert!(self.currentOutput >= self.config.minheight);
+                    // assert!(self.currentOutput >= self.config.minheight);
                     result = AddResult::Output(self.currentOutput);
                     self.currentOutput = 0;
                 }
                 SortAction::NotPossible => {
+                    println!("bro wat");
                     result = AddResult::NotPossible(0);
                     break;
                 }
             }
-            // println!(" -> {:?}", self.currentOutput);
+            println!(" -> {:?}", self.currentOutput);
         }
 
         return result;

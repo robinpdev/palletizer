@@ -5,9 +5,11 @@ use crate::{
     },
     excel::readXLSSeqs,
 };
+use serde::Serialize;
 use std::io;
 use wasm_bindgen::prelude::*;
 
+use js_sys::Uint32Array;
 use rand::Rng;
 
 mod environment;
@@ -71,13 +73,21 @@ pub fn main() {
 //     }
 //     return result;
 // }
+//
+
+#[derive(Serialize)]
+struct SeqResult {
+    pub outputs: Vec<u32>,
+    pub steps: u64,
+}
 
 #[wasm_bindgen]
-pub fn runseq(seq: Vec<u32>) -> String {
+pub fn runseq(seq: Vec<u32>) -> JsValue {
     let mut env: environment::PreSorter =
         PreSorter::new(4, 30, 25, 20, environment::SortStrategy::FirstFitStrategy);
 
     let mut steps = 0;
+    let mut outputs: Vec<u32> = Vec::new();
 
     // let seq = vec![10, 12, 14, 18, 25, 20];
 
@@ -86,23 +96,20 @@ pub fn runseq(seq: Vec<u32>) -> String {
 
         let result = env.add(item);
 
+        match result {
+            AddResult::Output(o) => {
+                outputs.push(o);
+            }
+            _ => {}
+        }
+
         println!("{}", env.stringstate());
-
-        // if let NotPossible(_) = result {
-        //     println!("STOP after {} steps", steps);
-
-        //     // // require enter to continue
-        //     // let mut buffer = String::new();
-        //     // let stdin = io::stdin(); // We get `Stdin` here.
-        //     // stdin.read_line(&mut buffer);
-
-        //     env.reset();
-        //     steps = 0;
-
-        //     break;
-        // }
         steps += 1;
     }
 
-    return env.stringstate();
+    return serde_wasm_bindgen::to_value(&SeqResult {
+        outputs: outputs.into(),
+        steps,
+    })
+    .unwrap();
 }
