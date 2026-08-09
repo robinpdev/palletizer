@@ -218,6 +218,11 @@ impl PreSorter {
     }
 
     #[wasm_bindgen]
+    pub fn get_buffers(&self) -> Vec<u32> {
+        self.buffers.to_vec()
+    }
+
+    #[wasm_bindgen]
     pub fn stringstate(&self) -> String {
         let mut out: String = String::new();
         for buffer in &self.buffers {

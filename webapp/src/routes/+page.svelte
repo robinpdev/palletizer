@@ -141,8 +141,7 @@
 		font-family: monospace;
 	}
 
-	h1 {
-	}
+
 
 	.btn {
 		background-color: #04aa6d;
