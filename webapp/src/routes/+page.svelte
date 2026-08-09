@@ -46,7 +46,8 @@
 		} else if ('NoOutput' in result) {
 			//empty
 		} else if ('Output' in result) {
-			outputs.unshift(result.Output);
+		    if(outputs.length == 0) outputs.push([]);
+			outputs[0].unshift(result.Output);
 		}
 		refresh();
 	}
@@ -99,6 +100,8 @@
 	{:then}
 		<input type="file" id="input" bind:files />
 		<button onclick={() => testseq()}>Test seq</button>
+
+		<br/>
 
 		{#each { length: 24 }, index}
 			<button class="btn" onclick={() => add(index + 1)}>{index + 1}</button>

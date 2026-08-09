@@ -42,8 +42,6 @@ impl SortStrategy {
                     return [SortAction::Pass, SortAction::Output].into();
                 }
 
-                let mut mybuffers = buffers.clone();
-                let mut currentout = 0;
                 let mut actions: Vec<SortAction> = Vec::new();
 
                 // look for combinations of buffers + item that are within spec
@@ -79,10 +77,11 @@ impl SortStrategy {
                     }
 
                     // try to switch with other larger buffer
-                    for (i, buffer) in buffers.iter().enumerate() {
-                        if *buffer > item {
-                            actions.push(SortAction::Pop(i));
-                            actions.push(SortAction::AddTo(i));
+                    let maxbuffer = buffers.iter().enumerate().max_by(|a, b| a.1.cmp(b.1));
+                    if let Some(maxbuf) = maxbuffer {
+                        if *maxbuf.1 > item {
+                            actions.push(SortAction::Pop(maxbuf.0));
+                            actions.push(SortAction::AddTo(maxbuf.0));
                             actions.push(SortAction::Output);
                             return actions.into_boxed_slice();
                         }
