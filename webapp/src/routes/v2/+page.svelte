@@ -1,13 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		Button,
-		Tag,
-		InlineNotification,
-		Loading,
-		TextInput,
-		Modal
-	} from 'carbon-components-svelte';
+	import { Button, Tag, InlineNotification, Loading, TextInput } from 'carbon-components-svelte';
 	import Upload from 'carbon-icons-svelte/lib/Upload.svelte';
 	import Reset from 'carbon-icons-svelte/lib/Reset.svelte';
 	import CheckmarkFilled from 'carbon-icons-svelte/lib/CheckmarkFilled.svelte';
@@ -18,6 +11,8 @@
 	import Close from 'carbon-icons-svelte/lib/Close.svelte';
 	import ChevronLeft from 'carbon-icons-svelte/lib/ChevronLeft.svelte';
 	import ChevronRight from 'carbon-icons-svelte/lib/ChevronRight.svelte';
+	import ChevronUp from 'carbon-icons-svelte/lib/ChevronUp.svelte';
+	import ChevronDown from 'carbon-icons-svelte/lib/ChevronDown.svelte';
 
 	import {
 		processExcelFile,
@@ -39,8 +34,9 @@
 	let searchQuery = $state('');
 	let showOnlyUnsatisfactory = $state(false);
 
-	// Buffer Inspector modal/panel state
+	// Buffer Inspector card state
 	let inspectorOpen = $state(false);
+	let inspectorCollapsed = $state(false);
 	let inspectorPallet = $state<PalletData | null>(null);
 	let inspectorStackIndex = $state<number>(0);
 	let inspectorBufferState = $state<BufferState | null>(null);
@@ -132,8 +128,13 @@
 	}
 
 	function openBufferInspector(pallet: PalletData, stackIndex: number) {
+		if (inspectorOpen && inspectorPallet?.id === pallet.id && inspectorStackIndex === stackIndex) {
+			closeBufferInspector();
+			return;
+		}
 		inspectorPallet = pallet;
 		inspectorStackIndex = stackIndex;
+		inspectorCollapsed = false;
 		if (pallet.rawSequence && pallet.rawSequence.length > 0) {
 			inspectorBufferState = getBufferStateForOutput(pallet.rawSequence, stackIndex);
 		} else {
@@ -144,9 +145,15 @@
 
 	function closeBufferInspector() {
 		inspectorOpen = false;
+		inspectorCollapsed = false;
 		inspectorPallet = null;
 		inspectorStackIndex = 0;
 		inspectorBufferState = null;
+	}
+
+	function toggleInspectorCollapsed() {
+		if (!inspectorOpen) return;
+		inspectorCollapsed = !inspectorCollapsed;
 	}
 
 	function navigateInspector(delta: number) {
@@ -157,6 +164,8 @@
 		}
 	}
 </script>
+
+<svelte:window onkeydown={(e) => e.key === 'Escape' && closeBufferInspector()} />
 
 <div class="v2-page-layout">
 	<!-- TOP INDUSTRIAL STATUS BAR -->
@@ -433,146 +442,157 @@
 									</div>
 								</div>
 							</div>
+
+							<!-- COLLAPSIBLE BUFFER INSPECTOR CARD (inline under bar chart) -->
+							{#if inspectorOpen && inspectorPallet && inspectorPallet.id === pallet.id}
+								<section class="buffer-inspector-card" class:collapsed={inspectorCollapsed}>
+									<header class="inspector-card-header">
+										<div class="inspector-title-group">
+											<span class="inspector-badge">PRESORTER DIAGNOSTICS</span>
+											<h4 class="inspector-main-title">
+												PALLET #{inspectorPallet.id.toString().padStart(2, '0')} // OUTPUT #{inspectorStackIndex +
+													1}
+											</h4>
+											{#if inspectorCollapsed}
+												<span
+													class="inspector-collapsed-summary"
+													class:alert-text={inspectorPallet.stacks[inspectorStackIndex] < 20}
+													>HEIGHT: {inspectorPallet.stacks[inspectorStackIndex]}</span
+												>
+											{/if}
+										</div>
+										<div class="inspector-card-actions">
+											<button
+												class="collapse-inspector-btn"
+												onclick={toggleInspectorCollapsed}
+												aria-label={inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
+												title={inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
+											>
+												{#if inspectorCollapsed}<ChevronDown size={20} />{:else}<ChevronUp
+														size={20}
+													/>{/if}
+											</button>
+											<button
+												class="close-inspector-btn"
+												onclick={closeBufferInspector}
+												aria-label="Close Inspector"
+												title="Close Inspector"
+											>
+												<Close size={20} />
+											</button>
+										</div>
+									</header>
+
+									{#if !inspectorCollapsed}
+										<div class="inspector-body">
+											<!-- STACK DETAILS BAR -->
+											<div class="inspector-stack-summary">
+												<div class="summary-item">
+													<span class="s-label">OUTPUT HEIGHT:</span>
+													<span
+														class="s-value"
+														class:alert-text={inspectorPallet.stacks[inspectorStackIndex] < 20}
+													>
+														{inspectorPallet.stacks[inspectorStackIndex]} MAGAZINES
+													</span>
+												</div>
+												<div class="summary-item">
+													<span class="s-label">STATUS:</span>
+													{#if inspectorPallet.stacks[inspectorStackIndex] < 20}
+														<Tag type="red" size="sm">UNSATISFACTORY (&lt; 20)</Tag>
+													{:else}
+														<Tag type="green" size="sm">SATISFACTORY (≥ 20)</Tag>
+													{/if}
+												</div>
+												{#if inspectorBufferState}
+													<div class="summary-item">
+														<span class="s-label">ITEMS PROCESSED:</span>
+														<span class="s-value"
+															>{inspectorBufferState.itemsProcessed} items from sequence</span
+														>
+													</div>
+												{/if}
+											</div>
+
+											{#if inspectorBufferState}
+												<!-- VISUAL BUFFER SLOTS GAUGE (BUFFERS 1 TO 4) -->
+												<div class="buffer-slots-container">
+													<h5 class="section-subheading">BUFFER POSITIONS STATE (4 SLOTS)</h5>
+													<div class="buffer-slots-grid">
+														{#each inspectorBufferState.buffers as bufHeight, bufIdx}
+															{@const fillPercent = (bufHeight / 30) * 100}
+															<div class="buffer-slot-card" class:has-items={bufHeight > 0}>
+																<div class="slot-header">
+																	<span class="slot-title">BUFFER #{bufIdx + 1}</span>
+																	<span class="slot-count">{bufHeight} / 30</span>
+																</div>
+
+																<div class="slot-gauge-track">
+																	<div class="slot-gauge-fill" style="width: {fillPercent}%;"></div>
+																</div>
+
+																<div class="slot-status">
+																	{bufHeight === 0
+																		? 'EMPTY (AVAILABLE)'
+																		: `${bufHeight} MAGAZINES STACKED`}
+																</div>
+															</div>
+														{/each}
+													</div>
+												</div>
+
+												<!-- ASCII STRING STATE FROM RUST WASM -->
+												<div class="ascii-state-container">
+													<h5 class="section-subheading">RAW RUST PRE-SORTER MEMORY STATE</h5>
+													<pre class="ascii-state-box">{inspectorBufferState.stringState}</pre>
+												</div>
+											{:else}
+												<div class="no-buffer-data">
+													No raw sequence data available for this pallet output.
+												</div>
+											{/if}
+										</div>
+
+										<!-- FOOTER / NAVIGATION CONTROLS -->
+										<footer class="inspector-footer">
+											<div class="nav-controls">
+												<Button
+													kind="secondary"
+													size="small"
+													icon={ChevronLeft}
+													disabled={inspectorStackIndex === 0}
+													onclick={() => navigateInspector(-1)}
+												>
+													PREV OUTPUT
+												</Button>
+
+												<span class="nav-indicator">
+													STACK {inspectorStackIndex + 1} OF {inspectorPallet.stacks.length}
+												</span>
+
+												<Button
+													kind="secondary"
+													size="small"
+													icon={ChevronRight}
+													disabled={inspectorStackIndex === inspectorPallet.stacks.length - 1}
+													onclick={() => navigateInspector(1)}
+												>
+													NEXT OUTPUT
+												</Button>
+											</div>
+
+											<Button kind="primary" size="small" onclick={closeBufferInspector}>
+												CLOSE INSPECTOR
+											</Button>
+										</footer>
+									{/if}
+								</section>
+							{/if}
 						</article>
 					{/each}
 				{/if}
 			</div>
 		</section>
-	{/if}
-
-	<!-- BUFFER STATE INSPECTION PANEL / MODAL -->
-	{#if inspectorOpen && inspectorPallet}
-		<div
-			class="buffer-inspector-backdrop"
-			onclick={closeBufferInspector}
-			onkeydown={(e) => e.key === 'Escape' && closeBufferInspector()}
-			role="presentation"
-		>
-			<div
-				class="buffer-inspector-modal"
-				tabindex="-1"
-				onclick={(e) => e.stopPropagation()}
-				onkeydown={(e) => e.stopPropagation()}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="inspector-title"
-			>
-				<header class="inspector-header">
-					<div class="inspector-title-group">
-						<span class="inspector-badge">PRESORTER DIAGNOSTICS</span>
-						<h3 id="inspector-title" class="inspector-main-title">
-							PALLET #{inspectorPallet.id.toString().padStart(2, '0')} // OUTPUT #{inspectorStackIndex +
-								1}
-						</h3>
-					</div>
-					<button
-						class="close-inspector-btn"
-						onclick={closeBufferInspector}
-						aria-label="Close Inspector"
-					>
-						<Close size={20} />
-					</button>
-				</header>
-
-				<div class="inspector-body">
-					<!-- STACK DETAILS BAR -->
-					<div class="inspector-stack-summary">
-						<div class="summary-item">
-							<span class="s-label">OUTPUT HEIGHT:</span>
-							<span
-								class="s-value"
-								class:alert-text={inspectorPallet.stacks[inspectorStackIndex] < 20}
-							>
-								{inspectorPallet.stacks[inspectorStackIndex]} MAGAZINES
-							</span>
-						</div>
-						<div class="summary-item">
-							<span class="s-label">STATUS:</span>
-							{#if inspectorPallet.stacks[inspectorStackIndex] < 20}
-								<Tag type="red" size="sm">UNSATISFACTORY (&lt; 20)</Tag>
-							{:else}
-								<Tag type="green" size="sm">SATISFACTORY (≥ 20)</Tag>
-							{/if}
-						</div>
-						{#if inspectorBufferState}
-							<div class="summary-item">
-								<span class="s-label">ITEMS PROCESSED:</span>
-								<span class="s-value"
-									>{inspectorBufferState.itemsProcessed} items from sequence</span
-								>
-							</div>
-						{/if}
-					</div>
-
-					{#if inspectorBufferState}
-						<!-- VISUAL BUFFER SLOTS GAUGE (BUFFERS 1 TO 4) -->
-						<div class="buffer-slots-container">
-							<h4 class="section-subheading">BUFFER POSITIONS STATE (4 SLOTS)</h4>
-							<div class="buffer-slots-grid">
-								{#each inspectorBufferState.buffers as bufHeight, bufIdx}
-									{@const fillPercent = (bufHeight / 30) * 100}
-									<div class="buffer-slot-card" class:has-items={bufHeight > 0}>
-										<div class="slot-header">
-											<span class="slot-title">BUFFER #{bufIdx + 1}</span>
-											<span class="slot-count">{bufHeight} / 30</span>
-										</div>
-
-										<div class="slot-gauge-track">
-											<div class="slot-gauge-fill" style="width: {fillPercent}%;"></div>
-										</div>
-
-										<div class="slot-status">
-											{bufHeight === 0 ? 'EMPTY (AVAILABLE)' : `${bufHeight} MAGAZINES STACKED`}
-										</div>
-									</div>
-								{/each}
-							</div>
-						</div>
-
-						<!-- ASCII STRING STATE FROM RUST WASM -->
-						<div class="ascii-state-container">
-							<h4 class="section-subheading">RAW RUST PRE-SORTER MEMORY STATE</h4>
-							<pre class="ascii-state-box">{inspectorBufferState.stringState}</pre>
-						</div>
-					{:else}
-						<div class="no-buffer-data">No raw sequence data available for this pallet output.</div>
-					{/if}
-				</div>
-
-				<!-- FOOTER / NAVIGATION CONTROLS -->
-				<footer class="inspector-footer">
-					<div class="nav-controls">
-						<Button
-							kind="secondary"
-							size="small"
-							icon={ChevronLeft}
-							disabled={inspectorStackIndex === 0}
-							onclick={() => navigateInspector(-1)}
-						>
-							PREV OUTPUT
-						</Button>
-
-						<span class="nav-indicator">
-							STACK {inspectorStackIndex + 1} OF {inspectorPallet.stacks.length}
-						</span>
-
-						<Button
-							kind="secondary"
-							size="small"
-							icon={ChevronRight}
-							disabled={inspectorStackIndex === inspectorPallet.stacks.length - 1}
-							onclick={() => navigateInspector(1)}
-						>
-							NEXT OUTPUT
-						</Button>
-					</div>
-
-					<Button kind="primary" size="small" onclick={closeBufferInspector}>
-						CLOSE INSPECTOR
-					</Button>
-				</footer>
-			</div>
-		</div>
 	{/if}
 </div>
 
@@ -1024,9 +1044,44 @@
 		border-bottom: 2px solid #0f0f0f;
 		background: #ffffff;
 		max-width: 100%;
-		overflow-x: scroll;
+		overflow-x: auto;
+		scrollbar-width: thin;
+		scrollbar-color: #0f0f0f #f4f4f4;
 		scrollbar-gutter: stable;
 		padding-bottom: 24px; /* Space for x-axis labels */
+	}
+
+	/* OPTIMIZED CHART SCROLLBAR (webkit / chromium) */
+	.chart-plot-area::-webkit-scrollbar {
+		height: 10px;
+	}
+
+	.chart-plot-area::-webkit-scrollbar-track {
+		background: #f4f4f4;
+		border: 1px solid #e0e0e0;
+		border-radius: 5px;
+	}
+
+	.chart-plot-area::-webkit-scrollbar-thumb {
+		background: #0f0f0f;
+		border-radius: 5px;
+		border: 2px solid #f4f4f4;
+	}
+
+	.chart-plot-area::-webkit-scrollbar-thumb:hover {
+		background: #393939;
+	}
+
+	.chart-plot-area::-webkit-scrollbar-thumb:active {
+		background: #6f6f6f;
+	}
+
+	.chart-plot-area::-webkit-scrollbar-button {
+		display: none;
+	}
+
+	.chart-plot-area::-webkit-scrollbar-corner {
+		background: #f4f4f4;
 	}
 
 	/* THRESHOLD HORIZONTAL REFERENCE LINE (Y = 20) */
@@ -1065,15 +1120,16 @@
 		align-items: flex-end;
 		justify-content: space-around;
 		height: 100%;
-		max-width: 100%;
+		width: max-content;
+		min-width: 100%;
 		padding: 0 0.5rem;
 		gap: 0.5rem;
 	}
 
 	/* INDIVIDUAL VERTICAL COLUMN BUTTON */
 	.vertical-bar-column {
-		flex: 1;
-		max-width: 60px;
+		flex: 0 0 46px;
+		width: 46px;
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -1172,42 +1228,42 @@
 		z-index: 6;
 	}
 
-	/* BUFFER INSPECTOR MODAL & BACKDROP */
-	.buffer-inspector-backdrop {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(15, 15, 15, 0.7);
-		backdrop-filter: blur(2px);
-		z-index: 2000;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 1.5rem;
-	}
-
-	.buffer-inspector-modal {
-		width: 100%;
-		max-width: 750px;
+	/* BUFFER INSPECTOR CARD (inline, collapsible, under bar chart) */
+	.buffer-inspector-card {
 		background: #ffffff;
 		border: 2px solid #0f0f0f;
-		box-shadow: 12px 12px 0px #0f0f0f;
+		box-shadow: 4px 4px 0px #0f0f0f;
 		display: flex;
 		flex-direction: column;
-		max-height: 90vh;
-		overflow-y: auto;
+		overflow: hidden;
 	}
 
-	.inspector-header {
+	.inspector-card-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 1.25rem 1.5rem;
+		gap: 1rem;
+		padding: 1rem 1.25rem;
 		background: #0f0f0f;
 		color: #ffffff;
 		border-bottom: 2px solid #0f0f0f;
+	}
+
+	.buffer-inspector-card.collapsed .inspector-card-header {
+		border-bottom: none;
+	}
+
+	.inspector-title-group {
+		display: flex;
+		align-items: center;
+		gap: 0.8rem;
+		flex-wrap: wrap;
+	}
+
+	.inspector-card-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	.inspector-badge {
@@ -1219,24 +1275,44 @@
 
 	.inspector-main-title {
 		margin: 0;
-		font-size: 1.1rem;
+		font-size: 1.05rem;
 		font-weight: 900;
 		letter-spacing: 0.02em;
 	}
 
+	.inspector-collapsed-summary {
+		font-size: 0.7rem;
+		font-weight: 800;
+		letter-spacing: 0.05em;
+		color: #ffffff;
+		background: #262626;
+		border: 1px solid #525252;
+		padding: 0.2rem 0.5rem;
+	}
+
+	.inspector-collapsed-summary.alert-text {
+		color: #ffb3b8;
+		border-color: #da1e28;
+		background: rgba(218, 30, 40, 0.2);
+	}
+
+	.collapse-inspector-btn,
 	.close-inspector-btn {
 		background: transparent;
-		border: none;
+		border: 1px solid #525252;
 		color: #ffffff;
 		cursor: pointer;
-		padding: 0.25rem;
+		padding: 0.35rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		transition: all 0.15s ease;
 	}
 
+	.collapse-inspector-btn:hover,
 	.close-inspector-btn:hover {
-		opacity: 0.8;
+		background: #262626;
+		border-color: #ffffff;
 	}
 
 	.inspector-body {
