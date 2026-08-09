@@ -2,31 +2,57 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import 'carbon-components-svelte/css/white.css';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
+	import type { PathnameWithSearchOrHash } from '$app/types';
+	import { m } from '$lib/paraglide/messages';
+	import { locales, localizeHref, getLocale, type Locale } from '$lib/paraglide/runtime';
 
 	let { children } = $props();
+
+	function localizedHref(locale: Locale) {
+		return resolve(
+			localizeHref(page.url.pathname, { locale }) as unknown as PathnameWithSearchOrHash
+		);
+	}
 </script>
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>PALLETIZER // SIMULATOR V2</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+	<title>{m.layout_title()}</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link
+		href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
+		rel="stylesheet"
+	/>
 </svelte:head>
 
 <div class="industrial-app-container">
 	<header class="industrial-header">
 		<div class="header-brand">
-			<span class="brand-badge">ROULARTA // LOGISTICS</span>
-			<h1 class="brand-title">PALLETIZER SIMULATOR</h1>
+			<span class="brand-badge">{m.brand_badge()}</span>
+			<h1 class="brand-title">{m.brand_title()}</h1>
 		</div>
 		<nav class="header-nav">
-			<a href="/" class="nav-btn" class:active={page.url.pathname === '/'}>
-				<span class="nav-tag">[V1]</span> LEGACY
+			<a href={resolve('/')} class="nav-btn" class:active={page.url.pathname === '/'}>
+				<span class="nav-tag">[V1]</span>
+				{m.nav_legacy()}
 			</a>
-			<a href="/v2" class="nav-btn" class:active={page.url.pathname === '/v2'}>
-				<span class="nav-tag">[V2]</span> INDUSTRIAL V2
+			<a href={resolve('/v2')} class="nav-btn" class:active={page.url.pathname === '/v2'}>
+				<span class="nav-tag">[V2]</span>
+				{m.nav_industrial_v2()}
 			</a>
+			{#each locales as locale (locale)}
+				<a
+					href={localizedHref(locale)}
+					class="nav-btn lang-btn"
+					class:active={getLocale() === locale}
+					data-sveltekit-reload
+					aria-label={locale}
+				>
+					{locale.toUpperCase()}
+				</a>
+			{/each}
 		</nav>
 	</header>
 
@@ -139,6 +165,12 @@
 	.nav-tag {
 		font-size: 0.7rem;
 		opacity: 0.8;
+	}
+
+	.lang-btn {
+		min-width: 2.5rem;
+		justify-content: center;
+		padding: 0.5rem;
 	}
 
 	.industrial-main {

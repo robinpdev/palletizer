@@ -2,6 +2,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import { readSheet } from 'read-excel-file/browser';
 import init, { PreSorter, SortStrategy, runseq } from 'rust';
 import type { PalletData, OverallStats, SeqResult, BufferState } from './types';
+import { m } from '$lib/paraglide/messages';
 
 export async function getSheetNames(file: File): Promise<string[]> {
 	const buffer = new Uint8Array(await file.arrayBuffer());
@@ -9,7 +10,7 @@ export async function getSheetNames(file: File): Promise<string[]> {
 	const workbookXml = files['xl/workbook.xml'];
 
 	if (!workbookXml) {
-		throw new Error('Invalid XLSX file');
+		throw new Error(m.invalid_xlsx_file());
 	}
 
 	const xml = strFromU8(workbookXml);
@@ -26,7 +27,7 @@ export async function processExcelFile(file: File): Promise<PalletData[]> {
 	const sheetNames = await getSheetNames(file);
 	const targetSheet = sheetNames.find((s) => s.includes('SPREIDING')) || sheetNames[0];
 	if (!targetSheet) {
-		throw new Error('No valid worksheet found in the Excel file');
+		throw new Error(m.no_valid_worksheet());
 	}
 
 	const excel = await readSheet(file, targetSheet);
@@ -64,7 +65,11 @@ export async function processExcelFile(file: File): Promise<PalletData[]> {
 	return pallets;
 }
 
-export function calculatePalletStats(stacks: number[], id: number, rawSequence: number[] = []): PalletData {
+export function calculatePalletStats(
+	stacks: number[],
+	id: number,
+	rawSequence: number[] = []
+): PalletData {
 	if (stacks.length === 0) {
 		return {
 			id,
@@ -134,7 +139,9 @@ export function calculateOverallStats(pallets: PalletData[]): OverallStats {
 	const maxStackSize = Math.max(...allStacks);
 	const sum = allStacks.reduce((a, b) => a + b, 0);
 	const avgStackSize = parseFloat((sum / allStacks.length).toFixed(1));
-	const satisfactoryPercentage = parseFloat(((satisfactoryCount / allStacks.length) * 100).toFixed(1));
+	const satisfactoryPercentage = parseFloat(
+		((satisfactoryCount / allStacks.length) * 100).toFixed(1)
+	);
 
 	return {
 		totalPallets: pallets.length,
@@ -148,7 +155,10 @@ export function calculateOverallStats(pallets: PalletData[]): OverallStats {
 	};
 }
 
-export function getBufferStateForOutput(rawSequence: number[], targetOutputIndex: number): BufferState {
+export function getBufferStateForOutput(
+	rawSequence: number[],
+	targetOutputIndex: number
+): BufferState {
 	const sorter = PreSorter.new(4, 30, 25, 20, SortStrategy.FirstFitStrategy);
 	let outputCount = 0;
 	let itemsProcessed = 0;

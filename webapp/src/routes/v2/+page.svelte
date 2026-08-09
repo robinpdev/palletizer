@@ -23,6 +23,7 @@
 	} from '$lib/palletizer';
 	import type { PalletData, BufferState } from '$lib/types';
 	import init, { runseq } from 'rust';
+	import { m } from '$lib/paraglide/messages';
 
 	let files = $state<FileList | null>(null);
 	let pallets = $state<PalletData[]>([]);
@@ -65,7 +66,7 @@
 			await init();
 			wasmReady = true;
 		} catch (err: any) {
-			errorMessage = `Failed to initialize WASM module: ${err?.message || err}`;
+			errorMessage = m.v2_wasm_init_error({ message: err?.message || err });
 		}
 	});
 
@@ -82,7 +83,10 @@
 			pallets = await processExcelFile(file);
 		} catch (err: any) {
 			console.error(err);
-			errorMessage = `Error processing Excel file "${file.name}": ${err?.message || 'Invalid format or missing sheet'}`;
+			errorMessage = m.v2_process_error({
+				file: file.name,
+				message: err?.message || m.v2_invalid_format_or_missing_sheet()
+			});
 			pallets = [];
 		} finally {
 			isProcessing = false;
@@ -102,7 +106,7 @@
 	function runDemoSequence() {
 		isProcessing = true;
 		errorMessage = null;
-		activeFileName = 'DEMO_SEQUENCE_SPREIDING.xlsx (Simulated)';
+		activeFileName = m.v2_demo_filename();
 
 		setTimeout(() => {
 			try {
@@ -121,7 +125,7 @@
 				}
 				pallets = newPallets;
 			} catch (err: any) {
-				errorMessage = `Demo simulation error: ${err?.message || err}`;
+				errorMessage = m.v2_demo_error({ message: err?.message || err });
 			} finally {
 				isProcessing = false;
 			}
@@ -174,18 +178,18 @@
 		<div class="status-indicator">
 			<span class="pulse-dot" class:ready={wasmReady}></span>
 			<span class="status-text">
-				{wasmReady ? '[RUST PRE-SORTER ENGINE ONLINE]' : 'INITIALIZING WASM...'}
+				{wasmReady ? m.v2_engine_online() : m.v2_initializing_wasm()}
 			</span>
 		</div>
 		<div class="specs-pill">
-			MAX STACK HEIGHT: <strong>30</strong> | MIN TARGET: <strong>20 (SATISFACTORY)</strong>
+			{m.v2_max_stack_height()}
 		</div>
 	</section>
 
 	{#if errorMessage}
 		<InlineNotification
 			kind="error"
-			title="SYSTEM ERROR:"
+			title={m.v2_system_error()}
 			subtitle={errorMessage}
 			on:close={() => (errorMessage = null)}
 			style="margin-bottom: 1.5rem;"
@@ -198,13 +202,10 @@
 			<div class="upload-card">
 				<div class="card-header">
 					<Upload size={24} />
-					<h2 class="card-title">01 // UPLOAD EXCEL BUNDLE PROFILE</h2>
+					<h2 class="card-title">{m.v2_upload_title()}</h2>
 				</div>
 				<p class="card-description">
-					Select an Excel file containing bundle sequence data (e.g. sheet containing <code
-						>SPREIDING</code
-					>). The WASM palletizer module will process stack distributions and generate output
-					pallets.
+					{m.v2_upload_description()}
 				</p>
 
 				<div class="file-drop-zone">
@@ -223,19 +224,19 @@
 					>
 						{#if isProcessing}
 							<Loading small />
-							<span class="zone-text">CALCULATING PALLET STACKS...</span>
+							<span class="zone-text">{m.v2_calculating_stacks()}</span>
 						{:else}
 							<div class="upload-icon-wrapper">
 								<Upload size={32} />
 							</div>
-							<span class="zone-primary">DRAG & DROP EXCEL FILE HERE OR CLICK TO BROWSE</span>
-							<span class="zone-secondary">Supports .XLSX / .XLS spreadsheet files</span>
+							<span class="zone-primary">{m.v2_drag_drop()}</span>
+							<span class="zone-secondary">{m.v2_supports_files()}</span>
 						{/if}
 					</label>
 				</div>
 
 				<div class="demo-trigger-container">
-					<span class="divider-text">OR TEST WITH SYSTEM DEMO</span>
+					<span class="divider-text">{m.v2_or_test_demo()}</span>
 					<Button
 						kind="tertiary"
 						size="small"
@@ -243,7 +244,7 @@
 						disabled={!wasmReady || isProcessing}
 						onclick={runDemoSequence}
 					>
-						LOAD SIMULATED BUNDLE DEMO
+						{m.v2_load_demo()}
 					</Button>
 				</div>
 			</div>
@@ -255,11 +256,11 @@
 			<div class="active-file-bar">
 				<div class="file-info">
 					<Box size={18} />
-					<span class="file-name-label">SOURCE: <strong>{activeFileName}</strong></span>
+					<span class="file-name-label">{m.v2_source()} <strong>{activeFileName}</strong></span>
 				</div>
 				<div class="file-actions">
 					<Button kind="danger-tertiary" size="small" icon={Reset} onclick={resetData}>
-						UPLOAD NEW FILE
+						{m.v2_upload_new_file()}
 					</Button>
 				</div>
 			</div>
@@ -267,41 +268,44 @@
 			<!-- OVERALL STATISTICS DASHBOARD (SUM OF ALL PALLETS) -->
 			<div class="stats-overview-grid">
 				<div class="stat-card stat-primary">
-					<div class="stat-label">TOTAL PALLETS</div>
+					<div class="stat-label">{m.v2_total_pallets()}</div>
 					<div class="stat-value">{overallStats.totalPallets}</div>
-					<div class="stat-sub">Pallet Output Batches</div>
+					<div class="stat-sub">{m.v2_pallet_output_batches()}</div>
 				</div>
 
 				<div class="stat-card">
-					<div class="stat-label">TOTAL STACKS</div>
+					<div class="stat-label">{m.v2_total_stacks()}</div>
 					<div class="stat-value">{overallStats.totalStacks}</div>
-					<div class="stat-sub">Magazine Stacks Output</div>
+					<div class="stat-sub">{m.v2_magazine_stacks_output()}</div>
 				</div>
 
 				<div class="stat-card" class:warning-bg={overallStats.satisfactoryPercentage < 75}>
-					<div class="stat-label">SATISFACTORY STACKS</div>
+					<div class="stat-label">{m.v2_satisfactory_stacks()}</div>
 					<div class="stat-value">
 						{overallStats.satisfactoryPercentage}%
 					</div>
 					<div class="stat-sub">
-						{overallStats.satisfactoryCount} / {overallStats.totalStacks} (Height ≥ 20)
+						{m.v2_height_ge({
+							count: overallStats.satisfactoryCount,
+							total: overallStats.totalStacks
+						})}
 					</div>
 				</div>
 
 				<div class="stat-card">
-					<div class="stat-label">MIN / MAX STACK SIZE</div>
+					<div class="stat-label">{m.v2_min_max_stack_size()}</div>
 					<div class="stat-value minmax">
 						<span class="min-val">{overallStats.minStackSize}</span>
 						<span class="sep">/</span>
 						<span class="max-val">{overallStats.maxStackSize}</span>
 					</div>
-					<div class="stat-sub">Global Height Boundaries</div>
+					<div class="stat-sub">{m.v2_global_height_boundaries()}</div>
 				</div>
 
 				<div class="stat-card">
-					<div class="stat-label">AVG STACK HEIGHT</div>
+					<div class="stat-label">{m.v2_avg_stack_height()}</div>
 					<div class="stat-value">{overallStats.avgStackSize}</div>
-					<div class="stat-sub">Magazines per Stack</div>
+					<div class="stat-sub">{m.v2_magazines_per_stack()}</div>
 				</div>
 			</div>
 
@@ -310,7 +314,7 @@
 				<div class="search-box">
 					<TextInput
 						labelText=""
-						placeholder="FILTER PALLETS OR STACK SIZES..."
+						placeholder={m.v2_filter_placeholder()}
 						size="sm"
 						bind:value={searchQuery}
 					/>
@@ -321,7 +325,8 @@
 						class:active={showOnlyUnsatisfactory}
 						onclick={() => (showOnlyUnsatisfactory = !showOnlyUnsatisfactory)}
 					>
-						{showOnlyUnsatisfactory ? '[x]' : '[ ]'} SHOW ONLY UNSATISFACTORY PALLETS (&lt; 20)
+						{showOnlyUnsatisfactory ? '[x]' : '[ ]'}
+						{m.v2_show_unsatisfactory()}
 					</button>
 				</div>
 			</div>
@@ -329,43 +334,50 @@
 			<!-- PALLET LIST DISPLAY -->
 			<div class="pallets-container">
 				{#if filteredPallets.length === 0}
-					<div class="empty-filter-state">NO PALLETS MATCH THE CURRENT FILTER CRITERIA.</div>
+					<div class="empty-filter-state">{m.v2_no_pallets_match()}</div>
 				{:else}
 					{#each filteredPallets as pallet (pallet.id)}
 						<article class="pallet-card" class:has-unsatisfactory={pallet.unsatisfactoryCount > 0}>
 							<!-- PALLET HEADER & METRICS -->
 							<header class="pallet-header">
 								<div class="pallet-title-group">
-									<h3 class="pallet-title">PALLET #{pallet.id.toString().padStart(2, '0')}</h3>
+									<h3 class="pallet-title">
+										{m.v2_pallet_title({ id: pallet.id.toString().padStart(2, '0') })}
+									</h3>
 									{#if pallet.unsatisfactoryCount > 0}
 										<Tag type="red" size="sm" icon={WarningAltFilled}>
-											{pallet.unsatisfactoryCount} UNSATISFACTORY STACK{pallet.unsatisfactoryCount >
-											1
-												? 'S'
-												: ''}
+											{pallet.unsatisfactoryCount > 1
+												? m.v2_unsatisfactory_stacks_many({
+														count: pallet.unsatisfactoryCount
+													})
+												: m.v2_unsatisfactory_stacks_one({
+														count: pallet.unsatisfactoryCount
+													})}
 										</Tag>
 									{:else}
-										<Tag type="green" size="sm" icon={CheckmarkFilled}>100% SATISFACTORY</Tag>
+										<Tag type="green" size="sm" icon={CheckmarkFilled}
+											>{m.v2_fully_satisfactory()}</Tag
+										>
 									{/if}
 								</div>
 
 								<div class="pallet-metrics">
 									<div class="metric-item">
-										<span class="m-label">STACKS:</span>
+										<span class="m-label">{m.v2_stacks_metric()}</span>
 										<span class="m-value">{pallet.stacks.length}</span>
 									</div>
 									<div class="metric-item">
-										<span class="m-label">SATISFACTORY:</span>
+										<span class="m-label">{m.v2_satisfactory_metric()}</span>
 										<span class="m-value" class:warn-text={pallet.satisfactoryPercentage < 100}>
 											{pallet.satisfactoryPercentage}%
 										</span>
 									</div>
 									<div class="metric-item">
-										<span class="m-label">MIN / MAX:</span>
+										<span class="m-label">{m.v2_minmax_metric()}</span>
 										<span class="m-value">{pallet.minStackSize} - {pallet.maxStackSize}</span>
 									</div>
 									<div class="metric-item">
-										<span class="m-label">AVG:</span>
+										<span class="m-label">{m.v2_avg_metric()}</span>
 										<span class="m-value">{pallet.avgStackSize}</span>
 									</div>
 								</div>
@@ -375,10 +387,7 @@
 							<div class="chart-section">
 								<div class="chart-instruction">
 									<Information size={14} />
-									<span
-										>CLICK ON ANY VERTICAL BAR TO INSPECT THE PRESORTER BUFFER STATE AFTER THAT
-										OUTPUT</span
-									>
+									<span>{m.v2_chart_instruction()}</span>
 								</div>
 
 								<VerticalBarChart
@@ -396,16 +405,18 @@
 								<section class="buffer-inspector-card" class:collapsed={inspectorCollapsed}>
 									<header class="inspector-card-header">
 										<div class="inspector-title-group">
-											<span class="inspector-badge">PRESORTER DIAGNOSTICS</span>
+											<span class="inspector-badge">{m.v2_presorter_diagnostics()}</span>
 											<h4 class="inspector-main-title">
-												PALLET #{inspectorPallet.id.toString().padStart(2, '0')} // OUTPUT #{inspectorStackIndex +
-													1}
+												{m.v2_inspector_title({
+													id: inspectorPallet.id.toString().padStart(2, '0'),
+													output: inspectorStackIndex + 1
+												})}
 											</h4>
 											{#if inspectorCollapsed}
 												<span
 													class="inspector-collapsed-summary"
 													class:alert-text={inspectorPallet.stacks[inspectorStackIndex] < 20}
-													>HEIGHT: {inspectorPallet.stacks[inspectorStackIndex]}</span
+													>{m.v2_height()} {inspectorPallet.stacks[inspectorStackIndex]}</span
 												>
 											{/if}
 										</div>
@@ -413,8 +424,12 @@
 											<button
 												class="collapse-inspector-btn"
 												onclick={toggleInspectorCollapsed}
-												aria-label={inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
-												title={inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
+												aria-label={inspectorCollapsed
+													? m.v2_expand_inspector()
+													: m.v2_collapse_inspector()}
+												title={inspectorCollapsed
+													? m.v2_expand_inspector()
+													: m.v2_collapse_inspector()}
 											>
 												{#if inspectorCollapsed}<ChevronDown size={20} />{:else}<ChevronUp
 														size={20}
@@ -423,8 +438,8 @@
 											<button
 												class="close-inspector-btn"
 												onclick={closeBufferInspector}
-												aria-label="Close Inspector"
-												title="Close Inspector"
+												aria-label={m.v2_close_inspector()}
+												title={m.v2_close_inspector()}
 											>
 												<Close size={20} />
 											</button>
@@ -436,27 +451,30 @@
 											<!-- STACK DETAILS BAR -->
 											<div class="inspector-stack-summary">
 												<div class="summary-item">
-													<span class="s-label">OUTPUT HEIGHT:</span>
+													<span class="s-label">{m.v2_output_height()}</span>
 													<span
 														class="s-value"
 														class:alert-text={inspectorPallet.stacks[inspectorStackIndex] < 20}
 													>
-														{inspectorPallet.stacks[inspectorStackIndex]} MAGAZINES
+														{inspectorPallet.stacks[inspectorStackIndex]}
+														{m.v2_magazines()}
 													</span>
 												</div>
 												<div class="summary-item">
-													<span class="s-label">STATUS:</span>
+													<span class="s-label">{m.v2_status()}</span>
 													{#if inspectorPallet.stacks[inspectorStackIndex] < 20}
-														<Tag type="red" size="sm">UNSATISFACTORY (&lt; 20)</Tag>
+														<Tag type="red" size="sm">{m.v2_unsatisfactory_status()}</Tag>
 													{:else}
-														<Tag type="green" size="sm">SATISFACTORY (≥ 20)</Tag>
+														<Tag type="green" size="sm">{m.v2_satisfactory_status()}</Tag>
 													{/if}
 												</div>
 												{#if inspectorBufferState}
 													<div class="summary-item">
-														<span class="s-label">ITEMS PROCESSED:</span>
+														<span class="s-label">{m.v2_items_processed()}</span>
 														<span class="s-value"
-															>{inspectorBufferState.itemsProcessed} items from sequence</span
+															>{m.v2_items_from_sequence({
+																count: inspectorBufferState.itemsProcessed
+															})}</span
 														>
 													</div>
 												{/if}
@@ -465,13 +483,15 @@
 											{#if inspectorBufferState}
 												<!-- VISUAL BUFFER SLOTS GAUGE (BUFFERS 1 TO 4) -->
 												<div class="buffer-slots-container">
-													<h5 class="section-subheading">BUFFER POSITIONS STATE (4 SLOTS)</h5>
+													<h5 class="section-subheading">{m.v2_buffer_positions_state()}</h5>
 													<div class="buffer-slots-grid">
 														{#each inspectorBufferState.buffers as bufHeight, bufIdx}
 															{@const fillPercent = (bufHeight / 30) * 100}
 															<div class="buffer-slot-card" class:has-items={bufHeight > 0}>
 																<div class="slot-header">
-																	<span class="slot-title">BUFFER #{bufIdx + 1}</span>
+																	<span class="slot-title"
+																		>{m.v2_buffer_slot({ number: bufIdx + 1 })}</span
+																	>
 																	<span class="slot-count">{bufHeight} / 30</span>
 																</div>
 
@@ -481,8 +501,8 @@
 
 																<div class="slot-status">
 																	{bufHeight === 0
-																		? 'EMPTY (AVAILABLE)'
-																		: `${bufHeight} MAGAZINES STACKED`}
+																		? m.v2_empty_available()
+																		: m.v2_magazines_stacked({ count: bufHeight })}
 																</div>
 															</div>
 														{/each}
@@ -491,12 +511,12 @@
 
 												<!-- ASCII STRING STATE FROM RUST WASM -->
 												<div class="ascii-state-container">
-													<h5 class="section-subheading">RAW RUST PRE-SORTER MEMORY STATE</h5>
+													<h5 class="section-subheading">{m.v2_raw_rust_state()}</h5>
 													<pre class="ascii-state-box">{inspectorBufferState.stringState}</pre>
 												</div>
 											{:else}
 												<div class="no-buffer-data">
-													No raw sequence data available for this pallet output.
+													{m.v2_no_buffer_data()}
 												</div>
 											{/if}
 										</div>
@@ -511,11 +531,14 @@
 													disabled={inspectorStackIndex === 0}
 													onclick={() => navigateInspector(-1)}
 												>
-													PREV OUTPUT
+													{m.v2_prev_output()}
 												</Button>
 
 												<span class="nav-indicator">
-													STACK {inspectorStackIndex + 1} OF {inspectorPallet.stacks.length}
+													{m.v2_stack_of({
+														current: inspectorStackIndex + 1,
+														total: inspectorPallet.stacks.length
+													})}
 												</span>
 
 												<Button
@@ -525,12 +548,12 @@
 													disabled={inspectorStackIndex === inspectorPallet.stacks.length - 1}
 													onclick={() => navigateInspector(1)}
 												>
-													NEXT OUTPUT
+													{m.v2_next_output()}
 												</Button>
 											</div>
 
 											<Button kind="primary" size="small" onclick={closeBufferInspector}>
-												CLOSE INSPECTOR
+												{m.v2_close_inspector_btn()}
 											</Button>
 										</footer>
 									{/if}
@@ -590,10 +613,6 @@
 		font-size: 0.7rem;
 	}
 
-	.specs-pill strong {
-		color: #ffffff;
-	}
-
 	/* UPLOAD SECTION */
 	.upload-hero-section {
 		display: flex;
@@ -631,13 +650,6 @@
 		font-size: 0.85rem;
 		color: #525252;
 		line-height: 1.5;
-	}
-
-	.card-description code {
-		background: #e0e0e0;
-		padding: 0.15rem 0.4rem;
-		font-weight: 700;
-		color: #0f0f0f;
 	}
 
 	.file-drop-zone {

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages';
+
 	interface Props {
 		stacks: number[];
 		palletId: number;
@@ -115,8 +117,8 @@
 	<div class="chart-body">
 		<div class="chart-plot-area" bind:this={plotAreaEl} onscroll={handleScroll}>
 			<!-- THRESHOLD REFERENCE LINE AT Y=20 (66.66% height) -->
-			<div class="threshold-line" title="Minimum Satisfactory Height = 20">
-				<span class="threshold-tag">TARGET THRESHOLD (20)</span>
+			<div class="threshold-line" title={m.chart_threshold_title()}>
+				<span class="threshold-tag">{m.chart_target_threshold()}</span>
 			</div>
 
 			<!-- VERTICAL BARS -->
@@ -133,8 +135,7 @@
 						class:unsatisfactory={isUnsatisfactory}
 						class:selected={isSelected}
 						onclick={() => onselect?.(stackIdx)}
-						title="Stack #{stackIdx +
-							1}: height {height} magazines. Click to inspect presorter buffer state!"
+						title={m.chart_stack_title({ number: stackIdx + 1, height })}
 					>
 						<!-- NUMERIC HEIGHT VALUE ABOVE BAR -->
 						<div class="bar-value-label" class:alert-text={isUnsatisfactory}>
@@ -156,7 +157,7 @@
 						<div class="bar-x-label">#{stackIdx + 1}</div>
 
 						{#if isUnsatisfactory}
-							<span class="bar-warning-dot" title="Unsatisfactory (< 20)">!</span>
+							<span class="bar-warning-dot" title={m.chart_unsatisfactory_title()}>!</span>
 						{/if}
 					</button>
 				{/each}
@@ -177,7 +178,7 @@
 				class:dragging
 				role="slider"
 				tabindex="0"
-				aria-label="Scroll chart horizontally"
+				aria-label={m.chart_scroll_aria()}
 				aria-valuemin={0}
 				aria-valuemax={maxScroll}
 				aria-valuenow={Math.min(scrollLeft, maxScroll)}

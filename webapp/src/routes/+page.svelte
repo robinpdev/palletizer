@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 
 	import { unzipSync, strFromU8 } from 'fflate';
+	import { m } from '$lib/paraglide/messages';
 
 	export async function getSheetNames(file: File): Promise<string[]> {
 		const buffer = new Uint8Array(await file.arrayBuffer());
@@ -15,7 +16,7 @@
 		const workbookXml = files['xl/workbook.xml'];
 
 		if (!workbookXml) {
-			throw new Error('Invalid XLSX file');
+			throw new Error(m.invalid_xlsx_file());
 		}
 
 		const xml = strFromU8(workbookXml);
@@ -42,11 +43,11 @@
 		let result = env?.add_wasm(item) ?? {};
 		console.log(result);
 		if ('NotPossible' in result) {
-			alert("item can't be added");
+			alert(m.v1_item_cannot_added());
 		} else if ('NoOutput' in result) {
 			//empty
 		} else if ('Output' in result) {
-		    if(outputs.length == 0) outputs.push([]);
+			if (outputs.length == 0) outputs.push([]);
 			outputs[0].unshift(result.Output);
 		}
 		refresh();
@@ -73,7 +74,7 @@
 				}
 				let item = row[1] as number;
 				if (item >= 30) {
-					if(newseq.length != 0) seqs.push(newseq);
+					if (newseq.length != 0) seqs.push(newseq);
 					newseq = [];
 					continue;
 				}
@@ -83,25 +84,25 @@
 
 			console.log(seqs);
 
-			for( let seq of seqs){
-     			let result = runseq(new Uint32Array(seq)) as SeqResult;
-     			outputs.push(result.outputs);
+			for (let seq of seqs) {
+				let result = runseq(new Uint32Array(seq)) as SeqResult;
+				outputs.push(result.outputs);
 			}
 		}
 	}
 </script>
 
 <main>
-	<h1>PreSorter test</h1>
-	<p>Click buttons to add stack of size n</p>
+	<h1>{m.v1_test_title()}</h1>
+	<p>{m.v1_click_buttons_hint()}</p>
 
 	{#await init()}
-		<p>loading</p>
+		<p>{m.v1_loading()}</p>
 	{:then}
 		<input type="file" id="input" bind:files />
-		<button onclick={() => testseq()}>Test seq</button>
+		<button onclick={() => testseq()}>{m.v1_test_seq()}</button>
 
-		<br/>
+		<br />
 
 		{#each { length: 24 }, index}
 			<button class="btn" onclick={() => add(index + 1)}>{index + 1}</button>
@@ -114,23 +115,23 @@
 				[{'■'.repeat(env?.currentOutput)}{' '.repeat(30 - env?.currentOutput)}] {env?.currentOutput}
 			</p> -->
 
-			<p>buffers:</p>
+			<p>{m.v1_buffers()}</p>
 			<p style="white-space: pre-wrap; font-family: monospace; font-size: 1.2em;">
 				{env?.stringstate()}
 			</p>
 		{/key}
 
-		<h2>Outputs</h2>
+		<h2>{m.v1_outputs()}</h2>
 		{#each outputs as outputseq, index (index)}
-		    <h2>Pallet #{index + 1}</h2>
+			<h2>{m.v1_pallet_label({ number: index + 1 })}</h2>
 			{#each outputseq as output, i2 (i2)}
-    			<p
-    				style="white-space: pre-wrap; font-family: monospace; color: {output < 20
-    					? 'orange'
-    					: 'default'}"
-    			>
-    				[{'■'.repeat(output)}{' '.repeat(30 - output)}] {output}
-    			</p>
+				<p
+					style="white-space: pre-wrap; font-family: monospace; color: {output < 20
+						? 'orange'
+						: 'default'}"
+				>
+					[{'■'.repeat(output)}{' '.repeat(30 - output)}] {output}
+				</p>
 			{/each}
 		{/each}
 	{/await}
@@ -140,8 +141,6 @@
 	main {
 		font-family: monospace;
 	}
-
-
 
 	.btn {
 		background-color: #04aa6d;

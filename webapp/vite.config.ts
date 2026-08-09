@@ -2,7 +2,8 @@ import adapter from '@sveltejs/adapter-auto';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 // import the WASM packer that we installed earlier
-import wasmPack from "vite-plugin-wasm-pack";
+import wasmPack from 'vite-plugin-wasm-pack';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 
 export default defineConfig({
 	plugins: [
@@ -18,6 +19,12 @@ export default defineConfig({
 			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 			adapter: adapter()
 		}),
-		wasmPack("./rust"),
+		paraglideVitePlugin({
+			project: './project.inlang',
+			outdir: './src/lib/paraglide',
+			emitTsDeclarations: true,
+			strategy: ['url', 'cookie', 'baseLocale']
+		}),
+		wasmPack('./rust')
 	]
 });
