@@ -86,7 +86,7 @@ pub fn runseq(seq: Vec<u32>, nbuffers: u32,
         minheight: u32,
         strategy: SortStrategy,) -> JsValue {
     let mut env: environment::PreSorter =
-        PreSorter::new(4, 30, 25, 20, environment::SortStrategy::FirstFitStrategy);
+        PreSorter::new(4, maxheight, targetheight, minheight, strategy,);
 
     let mut steps = 0;
     let mut outputs: Vec<Box<[u32]>> = Vec::new();
