@@ -1,9 +1,7 @@
 use crate::{
     environment::{
-        AddResult::{self, NotPossible},
-        PreSorter,
-    },
-    excel::readXLSSeqs,
+        AddResult::{self, NotPossible}, PreSorter, SortStrategy,
+    }, excel::readXLSSeqs,
 };
 use serde::Serialize;
 use std::io;
@@ -43,7 +41,7 @@ pub fn main() {
         for item in seq {
             println!("add {}", item);
 
-            let result = env.add(item);
+            // let result = env.add(item);
 
             println!("{}", env.stringstate());
 
@@ -77,39 +75,39 @@ pub fn main() {
 
 #[derive(Serialize)]
 struct SeqResult {
-    pub outputs: Vec<u32>,
+    pub outputs: Vec<Box<[u32]>>,
     pub steps: u64,
 }
 
 #[wasm_bindgen]
-pub fn runseq(seq: Vec<u32>) -> JsValue {
+pub fn runseq(seq: Vec<u32>, nbuffers: u32,
+        maxheight: u32,
+        targetheight: u32,
+        minheight: u32,
+        strategy: SortStrategy,) -> JsValue {
     let mut env: environment::PreSorter =
         PreSorter::new(4, 30, 25, 20, environment::SortStrategy::FirstFitStrategy);
 
     let mut steps = 0;
-    let mut outputs: Vec<u32> = Vec::new();
+    let mut outputs: Vec<Box<[u32]>> = Vec::new();
 
     // let seq = vec![10, 12, 14, 18, 25, 20];
 
     for item in seq {
         println!("add {}", item);
 
-        let result = env.add(item);
-
-        match result {
-            AddResult::Output(o) => {
-                outputs.push(o);
-            }
-            _ => {}
+        if let Some(result) = env.add_wasm2(item){
+            outputs.push(result);
         }
+
 
         println!("{}", env.stringstate());
         steps += 1;
     }
 
-    return serde_wasm_bindgen::to_value(&SeqResult {
-        outputs: outputs.into(),
-        steps,
+    return serde_wasm_bindgen::to_value(&SeqResult{
+        outputs: outputs,
+        steps
     })
     .unwrap();
 }

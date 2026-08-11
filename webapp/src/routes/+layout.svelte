@@ -34,14 +34,6 @@
 			<h1 class="brand-title">{m.brand_title()}</h1>
 		</div>
 		<nav class="header-nav">
-			<a href={resolve('/')} class="nav-btn" class:active={page.url.pathname === '/'}>
-				<span class="nav-tag">[V1]</span>
-				{m.nav_legacy()}
-			</a>
-			<a href={resolve('/v2')} class="nav-btn" class:active={page.url.pathname === '/v2'}>
-				<span class="nav-tag">[V2]</span>
-				{m.nav_industrial_v2()}
-			</a>
 			{#each locales as locale (locale)}
 				<a
 					href={localizedHref(locale)}

@@ -1,5 +1,5 @@
 export interface BufferState {
-	buffers: number[];
+	buffers: number[][];
 	stringState: string;
 	itemsProcessed: number;
 }
@@ -7,7 +7,7 @@ export interface BufferState {
 export interface PalletData {
 	id: number;
 	rawSequence: number[];
-	stacks: number[];
+	stacks: number[][];
 	satisfactoryCount: number;
 	unsatisfactoryCount: number;
 	satisfactoryPercentage: number;
@@ -28,6 +28,6 @@ export interface OverallStats {
 }
 
 export interface SeqResult {
-	outputs: number[];
+	outputs: number[][];
 	steps: bigint | number;
 }

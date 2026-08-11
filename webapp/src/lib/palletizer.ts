@@ -21,7 +21,13 @@ export async function getSheetNames(file: File): Promise<string[]> {
 		.filter((name): name is string => name !== null);
 }
 
-export async function processExcelFile(file: File): Promise<PalletData[]> {
+export function arraysum(arr: number[]): number {
+	return arr.reduce((a, b) => a + b, 0);
+}
+
+export async function processExcelFile(file: File, 
+	nbuffers: number, maxheight: number, targetheight: number, minheight: number, strategy: SortStrategy
+): Promise<PalletData[]> {
 	await init();
 
 	const sheetNames = await getSheetNames(file);
@@ -57,8 +63,9 @@ export async function processExcelFile(file: File): Promise<PalletData[]> {
 
 	for (const seq of seqs) {
 		if (seq.length === 0) continue;
-		const result = runseq(new Uint32Array(seq)) as SeqResult;
-		const pallet = calculatePalletStats(result.outputs || [], palletIdx++, seq);
+		const result = runseq(new Uint32Array(seq), nbuffers, maxheight, targetheight, minheight, strategy) as SeqResult;
+		console.log(result);
+		const pallet = calculatePalletStats(result.outputs || [], palletIdx++, seq, minheight);
 		pallets.push(pallet);
 	}
 
@@ -66,9 +73,10 @@ export async function processExcelFile(file: File): Promise<PalletData[]> {
 }
 
 export function calculatePalletStats(
-	stacks: number[],
+	stacks: number[][],
 	id: number,
-	rawSequence: number[] = []
+	rawSequence: number[] = [],
+	minheight: number,
 ): PalletData {
 	if (stacks.length === 0) {
 		return {
@@ -84,11 +92,11 @@ export function calculatePalletStats(
 		};
 	}
 
-	const satisfactoryCount = stacks.filter((h) => h >= 20).length;
+	const satisfactoryCount = stacks.filter((h) => arraysum(h) >= minheight).length;
 	const unsatisfactoryCount = stacks.length - satisfactoryCount;
-	const minStackSize = Math.min(...stacks);
-	const maxStackSize = Math.max(...stacks);
-	const sum = stacks.reduce((a, b) => a + b, 0);
+	const minStackSize = Math.min(...stacks.map((s) => arraysum(s)));
+	const maxStackSize = Math.max(...stacks.map((s) => arraysum(s)));
+	const sum = stacks.reduce((a, b) => a + arraysum(b), 0);
 	const avgStackSize = parseFloat((sum / stacks.length).toFixed(1));
 	const satisfactoryPercentage = parseFloat(((satisfactoryCount / stacks.length) * 100).toFixed(1));
 
@@ -105,7 +113,7 @@ export function calculatePalletStats(
 	};
 }
 
-export function calculateOverallStats(pallets: PalletData[]): OverallStats {
+export function calculateOverallStats(pallets: PalletData[], minheight: number): OverallStats {
 	if (pallets.length === 0) {
 		return {
 			totalPallets: 0,
@@ -133,11 +141,11 @@ export function calculateOverallStats(pallets: PalletData[]): OverallStats {
 		};
 	}
 
-	const satisfactoryCount = allStacks.filter((h) => h >= 20).length;
+	const satisfactoryCount = allStacks.filter((h) => arraysum(h) >= minheight).length;
 	const unsatisfactoryCount = allStacks.length - satisfactoryCount;
-	const minStackSize = Math.min(...allStacks);
-	const maxStackSize = Math.max(...allStacks);
-	const sum = allStacks.reduce((a, b) => a + b, 0);
+	const minStackSize = Math.min(...allStacks.map((s) => arraysum(s)));
+	const maxStackSize = Math.max(...allStacks.map((s) => arraysum(s)));
+	const sum = allStacks.reduce((a, b) => a + arraysum(b), 0);
 	const avgStackSize = parseFloat((sum / allStacks.length).toFixed(1));
 	const satisfactoryPercentage = parseFloat(
 		((satisfactoryCount / allStacks.length) * 100).toFixed(1)
@@ -174,12 +182,11 @@ export function getBufferStateForOutput(
 		}
 	}
 
-	const bufferTypedArray = sorter.get_buffers() as Uint32Array;
-	const buffers: number[] = Array.from(bufferTypedArray);
+	const bufferTypedArray = sorter.get_buffers() as number[][];
 	const stringState = sorter.stringstate();
 
 	return {
-		buffers,
+		buffers: bufferTypedArray,
 		stringState,
 		itemsProcessed
 	};

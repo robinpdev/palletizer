@@ -1,7 +1,7 @@
 use std::{collections::HashSet, ops::Add};
 
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::{convert::VectorIntoWasmAbi, prelude::*};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -13,8 +13,8 @@ pub struct PreSorterConfig {
 
 #[wasm_bindgen]
 pub struct PreSorter {
-    buffers: Box<[u32]>,    //size of stacks in buffer positions
-    pub currentOutput: u32, // current size of next output stack
+    buffers: Box<[Vec<u32>]>,    //size of stacks in buffer positions
+    currentOutput: Vec<u32>, // current size of next output stack
     strategy: SortStrategy,
     config: PreSorterConfig,
 }
@@ -133,12 +133,11 @@ pub struct ClearAddToResult {
     height: u32,
 }
 
-#[wasm_bindgen]
 #[derive(Serialize, Deserialize)]
 pub enum AddResult {
     NotPossible(u32),
     NoOutput(u32),
-    Output(u32),
+    Output(Box<[u32]>),
 }
 
 #[wasm_bindgen]
@@ -157,12 +156,12 @@ impl PreSorter {
         minheight: u32,
         strategy: SortStrategy,
     ) -> PreSorter {
-        let buffers: Box<[u32]> = (0..nbuffers).map(|_| 0).collect();
+        let buffers: Box<[Vec<u32>]> = (0..nbuffers).map(|_| Vec::new()).collect();
 
         let sorter: PreSorter = PreSorter {
             buffers,
             strategy: strategy,
-            currentOutput: 0,
+            currentOutput: Vec::new(),
             config: PreSorterConfig {
                 targetheight,
                 minheight,
@@ -173,37 +172,65 @@ impl PreSorter {
         return sorter;
     }
 
+    pub fn getBufferSizes(& self) -> Box<[u32]>{
+        let sizes : Vec<u32> = self.buffers.iter().map(|b| b.iter().sum()).collect();
+        return sizes.into_boxed_slice();
+    }
+
+    fn getBufferSize(&self, ind: usize) -> u32{
+        return self.buffers[ind].iter().sum();
+    }
+
     #[wasm_bindgen]
     pub fn add_wasm(&mut self, item: u32) -> Result<JsValue, JsValue> {
         let result = self.add(item);
         return Ok(serde_wasm_bindgen::to_value(&result)?);
     }
-    pub fn add(&mut self, item: u32) -> AddResult {
-        let actions = self.strategy.add(item, &self.buffers, &self);
+
+    pub fn add_wasm2(&mut self, item: u32) -> Option<Box<[u32]>>{
+        let result = self.add(item);
+        match result {
+            AddResult::Output(o) => {
+                return Some(o);
+            }
+            _ => None
+        }
+    }
+
+    fn push_buffer(&mut self, ind: usize){
+        self.currentOutput.extend(self.buffers[ind].iter());
+        self.buffers[ind].clear();
+    }
+
+    fn add(&mut self, item: u32) -> AddResult {
+        let actions = self.strategy.add(item, &self.getBufferSizes(), &self);
         let mut result: AddResult = AddResult::NoOutput(0);
 
+        let mut bufsizes = self.getBufferSizes();
+
         for action in actions {
-            print!("{} - {:?}: {}", item, action, self.currentOutput);
+            print!("{} - {:?}: {}", item, action, self.currentOutput.iter().sum::<u32>());
             match action {
                 SortAction::AddTo(bufind) => {
-                    assert!(self.buffers[bufind] == 0);
+                    assert!(bufsizes[bufind] == 0);
 
-                    self.buffers[bufind] = item;
+                    bufsizes[bufind] = item;
+                    self.buffers[bufind].push(item);
                 }
                 SortAction::Pop(bufind) => {
-                    assert!(self.currentOutput + self.buffers[bufind] <= self.config.maxheight);
+                    assert!(self.currentOutput.iter().sum::<u32>() + bufsizes[bufind] <= self.config.maxheight);
 
-                    self.currentOutput += self.buffers[bufind];
-                    self.buffers[bufind] = 0;
+                    self.push_buffer(bufind);
+                    bufsizes[bufind] = 0;
                 }
                 SortAction::Pass => {
-                    assert!(self.currentOutput + item <= self.config.maxheight);
-                    self.currentOutput += item;
+                    assert!(self.currentOutput.iter().sum::<u32>() + item <= self.config.maxheight);
+                    self.currentOutput.push(item);
                 }
                 SortAction::Output => {
                     // assert!(self.currentOutput >= self.config.minheight);
-                    result = AddResult::Output(self.currentOutput);
-                    self.currentOutput = 0;
+                    result = AddResult::Output(self.currentOutput.clone().into_boxed_slice());
+                    self.currentOutput.clear();
                 }
                 SortAction::NotPossible => {
                     println!("bro wat");
@@ -218,8 +245,9 @@ impl PreSorter {
     }
 
     #[wasm_bindgen]
-    pub fn get_buffers(&self) -> Vec<u32> {
-        self.buffers.to_vec()
+    pub fn get_buffers(&self) -> Result<JsValue, JsValue> {
+        let r : Vec<Box<[u32]>> = self.buffers.iter().map(|b| b.clone().into_boxed_slice()).collect();
+        return Ok(serde_wasm_bindgen::to_value(&r)?);
     }
 
     #[wasm_bindgen]
@@ -227,14 +255,14 @@ impl PreSorter {
         let mut out: String = String::new();
         for buffer in &self.buffers {
             out += "[";
-            for _ in (0..*buffer) {
+            for _ in (0..buffer.iter().sum()) {
                 out += "■";
             }
-            for _ in (0..(self.config.maxheight - *buffer)) {
+            for _ in (0..(self.config.maxheight - buffer.iter().sum::<u32>())) {
                 out += " ";
             }
             out += "] ";
-            out += &(self.config.maxheight - *buffer).to_string();
+            out += &(self.config.maxheight - buffer.iter().sum::<u32>() as u32).to_string();
             out += "\n";
         }
 
@@ -243,9 +271,9 @@ impl PreSorter {
 
     pub fn reset(&mut self) {
         for i in 0..self.buffers.len() {
-            self.buffers[i] = 0;
+            self.buffers[i].clear();
         }
-        self.currentOutput = 0;
+        self.currentOutput.clear();
     }
 }
 

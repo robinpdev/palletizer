@@ -1,16 +1,19 @@
 <script lang="ts">
+	import { arraysum } from '$lib/palletizer';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
-		stacks: number[];
+		stacks: number[][];
 		palletId: number;
 		inspectorOpen: boolean;
 		inspectorPalletId: number | null;
 		inspectorStackIndex: number;
+		minheight: number;
+		maxheight: number;
 		onselect?: (index: number) => void;
 	}
 
-	let { stacks, palletId, inspectorOpen, inspectorPalletId, inspectorStackIndex, onselect }: Props =
+	let { stacks, palletId, inspectorOpen, inspectorPalletId, inspectorStackIndex, onselect, minheight, maxheight }: Props =
 		$props();
 
 	let plotAreaEl: HTMLDivElement;
@@ -108,8 +111,8 @@
 <div class="vertical-chart-container">
 	<!-- Y-AXIS SCALE & REFERENCE LINES -->
 	<div class="chart-y-axis">
-		<span class="y-label y-max">30</span>
-		<span class="y-label y-target">20</span>
+		<span class="y-label y-max">{maxheight}</span>
+		<span class="y-label y-target">{minheight}</span>
 		<span class="y-label y-mid">10</span>
 		<span class="y-label y-zero">0</span>
 	</div>
@@ -117,15 +120,16 @@
 	<div class="chart-body">
 		<div class="chart-plot-area" bind:this={plotAreaEl} onscroll={handleScroll}>
 			<!-- THRESHOLD REFERENCE LINE AT Y=20 (66.66% height) -->
-			<div class="threshold-line" title={m.chart_threshold_title()}>
-				<span class="threshold-tag">{m.chart_target_threshold()}</span>
+			<div class="threshold-line" title={"Minimale hoogte: " + minheight} style="bottom: calc({100.0 * minheight / maxheight}% + 0px);">
+				<span class="threshold-tag">DOELDREMPEL {minheight}</span>
 			</div>
 
 			<!-- VERTICAL BARS -->
 			<div class="vertical-bars-grid">
-				{#each stacks as height, stackIdx (stackIdx)}
-					{@const isUnsatisfactory = height < 20}
-					{@const barHeightPercent = Math.min(100, Math.max(0, (height / 30) * 100))}
+				{#each stacks as stack, stackIdx (stackIdx)}
+					{@const height = arraysum(stack)}
+					{@const isUnsatisfactory = height < minheight}
+					{@const barHeightPercent = Math.min(100, Math.max(0, (height / maxheight) * 100))}
 					{@const isSelected =
 						inspectorOpen && inspectorPalletId === palletId && inspectorStackIndex === stackIdx}
 
@@ -144,20 +148,25 @@
 
 						<!-- VERTICAL BAR TRACK AND FILL -->
 						<div class="vertical-bar-track">
-							<div
-								class="vertical-bar-fill"
-								class:unsatisfactory-fill={isUnsatisfactory}
-								style="height: {barHeightPercent}%;"
-							>
-								<div class="bar-top-cap"></div>
-							</div>
+							{#each stack as bundle}
+								{@const bundleHeightPercent = Math.min(100, Math.max(0, (bundle / maxheight) * 100))}
+
+								<div
+									class="vertical-bar-fill"
+									class:unsatisfactory-fill={isUnsatisfactory}
+									style="height: {bundleHeightPercent}%;"
+								>
+									<div class="bar-top-cap"></div>
+								</div>
+								
+							{/each}
 						</div>
 
 						<!-- X-AXIS LABEL BELOW BAR -->
 						<div class="bar-x-label">#{stackIdx + 1}</div>
 
 						{#if isUnsatisfactory}
-							<span class="bar-warning-dot" title={m.chart_unsatisfactory_title()}>!</span>
+							<span class="bar-warning-dot" title={"Niet voldoende: " + height}>!</span>
 						{/if}
 					</button>
 				{/each}
@@ -250,7 +259,6 @@
 	/* THRESHOLD HORIZONTAL REFERENCE LINE (Y = 20) */
 	.threshold-line {
 		position: absolute;
-		bottom: calc(66.666% + 8px);
 		left: 0;
 		right: 0;
 		height: 2px;
@@ -359,7 +367,8 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: #ffffff;
+		/* background: #ffffff; */
+		background: white;
 		opacity: 0.4;
 	}
 
