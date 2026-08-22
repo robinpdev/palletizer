@@ -14,6 +14,7 @@ export interface PalletData {
 	minStackSize: number;
 	maxStackSize: number;
 	avgStackSize: number;
+	steps: number | bigint; // amount of stacks before emptying the buffers to finalize the pallet
 }
 
 export interface OverallStats {

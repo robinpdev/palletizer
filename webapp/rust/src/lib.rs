@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 use js_sys::Uint32Array;
 use rand::Rng;
 
-mod environment;
+pub mod environment;
 mod excel;
 
 // import Javascript's alert method to Rust
@@ -79,12 +79,11 @@ struct SeqResult {
     pub steps: u64,
 }
 
-#[wasm_bindgen]
-pub fn runseq(seq: Vec<u32>, nbuffers: u32,
+pub fn runseq_rs(seq: Vec<u32>, nbuffers: u32,
         maxheight: u32,
         targetheight: u32,
         minheight: u32,
-        strategy: SortStrategy,) -> JsValue {
+        strategy: SortStrategy,) -> Vec<Box<[u32]>> {
     let mut env: environment::PreSorter =
         PreSorter::new(4, maxheight, targetheight, minheight, strategy,);
 
@@ -98,15 +97,41 @@ pub fn runseq(seq: Vec<u32>, nbuffers: u32,
 
         if let Some(result) = env.add_wasm2(item){
             outputs.push(result);
+            steps += 1;
         }
 
 
         println!("{}", env.stringstate());
-        steps += 1;
     }
 
+    loop{
+        let out = env.empty_buffers_step();
+        if out.iter().sum::<u32>() <= 0{
+            break;
+        }else{
+            outputs.push(out);
+        }
+    }
+
+    
+    outputs.extend(env.empty_buffers());
+
+    println!("done");
+
+    return outputs;
+}
+
+#[wasm_bindgen]
+pub fn runseq(seq: Vec<u32>, nbuffers: u32,
+        maxheight: u32,
+        targetheight: u32,
+        minheight: u32,
+        strategy: SortStrategy,) -> JsValue {
+    
+    let steps: u64 = 0;
+    
     return serde_wasm_bindgen::to_value(&SeqResult{
-        outputs: outputs,
+        outputs: runseq_rs(seq, nbuffers, maxheight, targetheight, minheight, strategy),
         steps
     })
     .unwrap();

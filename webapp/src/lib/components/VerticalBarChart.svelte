@@ -16,6 +16,8 @@
 	let { stacks, palletId, inspectorOpen, inspectorPalletId, inspectorStackIndex, onselect, minheight, maxheight }: Props =
 		$props();
 
+	const maxbarheight = Math.max(maxheight, ...stacks.map(arraysum));
+
 	let plotAreaEl: HTMLDivElement;
 	let trackEl: HTMLDivElement;
 	let thumbEl: HTMLDivElement;
@@ -111,28 +113,30 @@
 <div class="vertical-chart-container">
 	<!-- Y-AXIS SCALE & REFERENCE LINES -->
 	<div class="chart-y-axis">
-		<span class="y-label y-max">{maxheight}</span>
-		<span class="y-label y-target">{minheight}</span>
-		<span class="y-label y-mid">10</span>
+		<span class="y-label y-max">{maxbarheight}</span>
+		<!-- <span class="y-label y-target">{minheight}</span> -->
+		<!-- <span class="y-label y-mid">10</span> -->
 		<span class="y-label y-zero">0</span>
 	</div>
 
 	<div class="chart-body">
 		<div class="chart-plot-area" bind:this={plotAreaEl} onscroll={handleScroll}>
 			<!-- THRESHOLD REFERENCE LINE AT Y=20 (66.66% height) -->
-			<div class="threshold-line" title={"Minimale hoogte: " + minheight} style="bottom: calc({100.0 * minheight / maxheight}% + 0px);">
+			<div class="threshold-line" title={"Minimale hoogte: " + minheight} style="bottom: calc({100.0 * minheight / maxbarheight}% + 0px);">
 				<span class="threshold-tag">DOELDREMPEL {minheight}</span>
+			</div>
+			<div class="threshold-line" title={"Maximale hoogte: " + maxheight} style="bottom: calc({100.0 * maxheight / maxbarheight}% + 0px);">
+				<span class="threshold-tag">DOELDREMPEL {maxheight}</span>
 			</div>
 
 			<!-- VERTICAL BARS -->
 			<div class="vertical-bars-grid">
 				{#each stacks as stack, stackIdx (stackIdx)}
 					{@const height = arraysum(stack)}
-					{@const isUnsatisfactory = height < minheight}
-					{@const barHeightPercent = Math.min(100, Math.max(0, (height / maxheight) * 100))}
+					{@const isUnsatisfactory = height < minheight || height > maxheight}
+					<!-- {@const barHeightPercent = Math.min(100, Math.max(0, (height / maxheight) * 100))} -->
 					{@const isSelected =
 						inspectorOpen && inspectorPalletId === palletId && inspectorStackIndex === stackIdx}
-
 					<button
 						type="button"
 						class="vertical-bar-column"
@@ -143,13 +147,13 @@
 					>
 						<!-- NUMERIC HEIGHT VALUE ABOVE BAR -->
 						<div class="bar-value-label" class:alert-text={isUnsatisfactory}>
-							{height}
+							{maxbarheight}
 						</div>
 
 						<!-- VERTICAL BAR TRACK AND FILL -->
 						<div class="vertical-bar-track">
-							{#each stack as bundle}
-								{@const bundleHeightPercent = Math.min(100, Math.max(0, (bundle / maxheight) * 100))}
+							{#each stack as bundle, bundleIdx (bundleIdx)}
+								{@const bundleHeightPercent = Math.min(100, Math.max(0, (bundle / maxbarheight) * 100))}
 
 								<div
 									class="vertical-bar-fill"
@@ -264,7 +268,7 @@
 		height: 2px;
 		background: repeating-linear-gradient(
 			90deg,
-			#da1e28,
+			#ff7402,
 			#da1e28 6px,
 			transparent 6px,
 			transparent 12px

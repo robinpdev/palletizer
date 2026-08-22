@@ -17,12 +17,10 @@
 
 	import {
 		processExcelFile,
+		processSequences,
 		calculateOverallStats,
-		calculatePalletStats,
 		getBufferStateForOutput,
-
 		arraysum
-
 	} from '$lib/palletizer';
 	import type { PalletData, BufferState } from '$lib/types';
 	import init, { runseq, SortStrategy } from 'rust';
@@ -62,7 +60,6 @@
         minheight: u32,
         strategy: SortStrategy,
 	*/
-
 
 	function clampHeightValue(value: number) {
 		return Math.max(1, Math.min(100, value));
@@ -122,7 +119,7 @@
 
 	onMount(async () => {
 		try {
-			await init("/assets/rust_bg.wasm");
+			await init('/assets/rust_bg.wasm');
 			wasmReady = true;
 		} catch (err: any) {
 			errorMessage = m.wasm_init_error({ message: err?.message || err });
@@ -139,7 +136,14 @@
 		errorMessage = null;
 
 		try {
-			pallets = await processExcelFile(file, nbuffers, maxheight, targetheight, minheight, strategy);
+			pallets = await processExcelFile(
+				file,
+				nbuffers,
+				maxheight,
+				targetheight,
+				minheight,
+				strategy
+			);
 		} catch (err: any) {
 			console.error(err);
 			errorMessage = m.process_error({
@@ -167,7 +171,7 @@
 		errorMessage = null;
 		activeFileName = m.demo_filename();
 
-		setTimeout(() => {
+		setTimeout(async () => {
 			try {
 				const demoSeqs = [
 					[12, 15, 18, 22, 25, 19, 28, 14, 21, 30, 24, 18, 26, 16],
@@ -176,13 +180,7 @@
 					[20, 21, 24, 28, 29, 23, 22, 25, 19, 15, 18, 27]
 				];
 
-				const newPallets: PalletData[] = [];
-				let id = 1;
-				for (const seq of demoSeqs) {
-					const result = runseq(new Uint32Array(seq), nbuffers, maxheight, targetheight, minheight, strategy) as { outputs: number[] };
-					// newPallets.push(calculatePalletStats(result.outputs || [], id++, seq, minheight));
-				}
-				pallets = newPallets;
+				pallets = await processSequences(demoSeqs, nbuffers, maxheight, targetheight, minheight, strategy);
 			} catch (err: any) {
 				errorMessage = m.demo_error({ message: err?.message || err });
 			} finally {
@@ -200,7 +198,16 @@
 		inspectorStackIndex = stackIndex;
 		inspectorCollapsed = false;
 		if (pallet.rawSequence && pallet.rawSequence.length > 0) {
-			inspectorBufferState = getBufferStateForOutput(pallet.rawSequence, stackIndex);
+			inspectorBufferState = getBufferStateForOutput(
+				pallet.rawSequence,
+				stackIndex,
+				nbuffers,
+				maxheight,
+				targetheight,
+				minheight,
+				strategy,
+				pallet.steps
+			);
 		} else {
 			inspectorBufferState = null;
 		}
@@ -279,7 +286,8 @@
 								min="1"
 								max="100"
 								value={minheight}
-								oninput={(event) => handleHeightInput('min', (event.currentTarget as HTMLInputElement).value)}
+								oninput={(event) =>
+									handleHeightInput('min', (event.currentTarget as HTMLInputElement).value)}
 							/>
 							<div class="height-stepper">
 								<button
@@ -313,7 +321,8 @@
 								min="1"
 								max="100"
 								value={maxheight}
-								oninput={(event) => handleHeightInput('max', (event.currentTarget as HTMLInputElement).value)}
+								oninput={(event) =>
+									handleHeightInput('max', (event.currentTarget as HTMLInputElement).value)}
 							/>
 							<div class="height-stepper">
 								<button
@@ -484,8 +493,7 @@
 													})}
 										</Tag>
 									{:else}
-										<Tag type="green" size="sm" icon={CheckmarkFilled}
-											>{m.fully_satisfactory()}</Tag
+										<Tag type="green" size="sm" icon={CheckmarkFilled}>{m.fully_satisfactory()}</Tag
 										>
 									{/if}
 								</div>
@@ -526,8 +534,8 @@
 									inspectorPalletId={inspectorPallet?.id ?? null}
 									{inspectorStackIndex}
 									onselect={(index) => openBufferInspector(pallet, index)}
-									minheight={minheight}
-									maxheight={maxheight}
+									{minheight}
+									{maxheight}
 								/>
 							</div>
 
@@ -546,8 +554,10 @@
 											{#if inspectorCollapsed}
 												<span
 													class="inspector-collapsed-summary"
-													class:alert-text={arraysum(inspectorPallet.stacks[inspectorStackIndex]) < minheight}
-													>{m.height()} {arraysum(inspectorPallet.stacks[inspectorStackIndex])}</span
+													class:alert-text={arraysum(inspectorPallet.stacks[inspectorStackIndex]) <
+														minheight}
+													>{m.height()}
+													{arraysum(inspectorPallet.stacks[inspectorStackIndex])}</span
 												>
 											{/if}
 										</div>
@@ -558,9 +568,7 @@
 												aria-label={inspectorCollapsed
 													? m.expand_inspector()
 													: m.collapse_inspector()}
-												title={inspectorCollapsed
-													? m.expand_inspector()
-													: m.collapse_inspector()}
+												title={inspectorCollapsed ? m.expand_inspector() : m.collapse_inspector()}
 											>
 												{#if inspectorCollapsed}<ChevronDown size={20} />{:else}<ChevronUp
 														size={20}
@@ -585,7 +593,9 @@
 													<span class="s-label">{m.output_height()}</span>
 													<span
 														class="s-value"
-														class:alert-text={arraysum(inspectorPallet.stacks[inspectorStackIndex]) < minheight}
+														class:alert-text={arraysum(
+															inspectorPallet.stacks[inspectorStackIndex]
+														) < minheight}
 													>
 														{arraysum(inspectorPallet.stacks[inspectorStackIndex])}
 														{m.magazines()}
@@ -616,28 +626,30 @@
 												<div class="buffer-slots-container">
 													<h5 class="section-subheading">{m.buffer_positions_state()}</h5>
 													<div class="buffer-slots-grid">
-														{#each inspectorBufferState.buffers as bundles, bufIdx}
-															{#each bundles as bufHeight, bundleIdx}
-																{@const fillPercent = (bufHeight / maxheight) * 100}
-																<div class="buffer-slot-card" class:has-items={bufHeight > 0}>
-																	<div class="slot-header">
-																		<span class="slot-title"
-																			>{m.buffer_slot({ number: bufIdx + 1 })}</span
-																		>
-																		<span class="slot-count">{bufHeight} / {maxheight}</span>
-																	</div>
-
-																	<div class="slot-gauge-track">
-																		<div class="slot-gauge-fill" style="width: {fillPercent}%;"></div>
-																	</div>
-
-																	<div class="slot-status">
-																		{bufHeight === 0
-																			? m.empty_available()
-																			: m.magazines_stacked({ count: bufHeight })}
-																	</div>
+														{#each inspectorBufferState.buffers as bundles, bufIdx (bufIdx)}
+															{@const bufHeight = arraysum(bundles)}
+															<div class="buffer-slot-card" class:has-items={true}>
+																<div class="slot-header">
+																	<span class="slot-title"
+																		>{m.buffer_slot({ number: bufIdx + 1 })}</span
+																	>
+																	<span class="slot-count">{bufHeight} / {maxheight}</span>
 																</div>
-															{/each}
+																<div class="slot-gauge-track">
+																	{#each bundles as bufHeight, bundleIdx (bundleIdx)}
+																		{@const fillPercent = (bufHeight / maxheight) * 100}
+																		<div
+																			class="slot-gauge-fill"
+																			style="width: {fillPercent}%;"
+																		></div>
+																	{/each}
+																</div>
+																<div class="slot-status">
+																	{bufHeight === 0
+																		? m.empty_available()
+																		: m.magazines_stacked({ count: bufHeight })}
+																</div>
+															</div>
 														{/each}
 													</div>
 												</div>
@@ -1347,7 +1359,7 @@
 	.slot-gauge-fill {
 		height: 100%;
 		background: #0f0f0f;
-		border-right: 2px solid white ;
+		border-right: 2px solid white;
 
 		transition: width 0.3s ease;
 	}

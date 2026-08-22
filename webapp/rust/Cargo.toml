@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 calamine = "0.35.0"
@@ -14,3 +14,4 @@ serde = "1.0.228"
 serde-wasm-bindgen = "0.6.5"
 wasm-bindgen = "0.2.126"
 js-sys = "0.3.103"
+serde_json = "1.0.151"

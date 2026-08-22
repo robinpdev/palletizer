@@ -25,7 +25,7 @@ export function arraysum(arr: number[]): number {
 	return arr.reduce((a, b) => a + b, 0);
 }
 
-export async function processExcelFile(file: File, 
+export async function processExcelFile(file: File,
 	nbuffers: number, maxheight: number, targetheight: number, minheight: number, strategy: SortStrategy
 ): Promise<PalletData[]> {
 	await init();
@@ -38,14 +38,14 @@ export async function processExcelFile(file: File,
 
 	const excel = await readSheet(file, targetSheet);
 	let newseq: number[] = [];
-	let seqs: number[][] = [];
+	const seqs: number[][] = [];
 
 	for (const row of excel) {
 		if (typeof row[1] !== 'number') {
 			continue;
 		}
-		let item = row[1] as number;
-		if (item >= 30) {
+		const item = row[1] as number;
+		if (item >= maxheight * 2) {
 			if (newseq.length !== 0) {
 				seqs.push(newseq);
 			}
@@ -58,6 +58,21 @@ export async function processExcelFile(file: File,
 		seqs.push(newseq);
 	}
 
+	const output = await processSequences(seqs, nbuffers, maxheight, targetheight, minheight, strategy);
+	return output;
+}
+
+export async function processSequences(
+	seqs: number[][],
+	nbuffers: number,
+	maxheight: number,
+	targetheight: number,
+	minheight: number,
+	strategy: SortStrategy
+): Promise<PalletData[]> {
+	await init();
+	// console.log({seqs});
+
 	const pallets: PalletData[] = [];
 	let palletIdx = 1;
 
@@ -65,7 +80,7 @@ export async function processExcelFile(file: File,
 		if (seq.length === 0) continue;
 		const result = runseq(new Uint32Array(seq), nbuffers, maxheight, targetheight, minheight, strategy) as SeqResult;
 		console.log(result);
-		const pallet = calculatePalletStats(result.outputs || [], palletIdx++, seq, minheight);
+		const pallet = calculatePalletStats(result.outputs || [], palletIdx++, seq, minheight, maxheight, result.steps);
 		pallets.push(pallet);
 	}
 
@@ -77,6 +92,8 @@ export function calculatePalletStats(
 	id: number,
 	rawSequence: number[] = [],
 	minheight: number,
+	maxheight: number,
+	steps: number | bigint
 ): PalletData {
 	if (stacks.length === 0) {
 		return {
@@ -88,11 +105,15 @@ export function calculatePalletStats(
 			satisfactoryPercentage: 0,
 			minStackSize: 0,
 			maxStackSize: 0,
-			avgStackSize: 0
+			avgStackSize: 0,
+			steps
 		};
 	}
 
-	const satisfactoryCount = stacks.filter((h) => arraysum(h) >= minheight).length;
+	const satisfactoryCount = stacks.filter((h) => {
+		const stackHeight = arraysum(h);
+		return stackHeight >= minheight && stackHeight <= maxheight;
+	}).length;
 	const unsatisfactoryCount = stacks.length - satisfactoryCount;
 	const minStackSize = Math.min(...stacks.map((s) => arraysum(s)));
 	const maxStackSize = Math.max(...stacks.map((s) => arraysum(s)));
@@ -109,7 +130,8 @@ export function calculatePalletStats(
 		satisfactoryPercentage,
 		minStackSize,
 		maxStackSize,
-		avgStackSize
+		avgStackSize,
+		steps
 	};
 }
 
@@ -165,15 +187,21 @@ export function calculateOverallStats(pallets: PalletData[], minheight: number):
 
 export function getBufferStateForOutput(
 	rawSequence: number[],
-	targetOutputIndex: number
+	targetOutputIndex: number,
+	nbuffers: number,
+	maxheight: number,
+	targetheight: number,
+	minheight: number,
+	strategy: SortStrategy,
+	steps: number | bigint
 ): BufferState {
-	const sorter = PreSorter.new(4, 30, 25, 20, SortStrategy.FirstFitStrategy);
+	const sorter = PreSorter.new(nbuffers, maxheight, targetheight, minheight, strategy);
 	let outputCount = 0;
 	let itemsProcessed = 0;
 
 	for (const item of rawSequence) {
 		itemsProcessed++;
-		const result = sorter.add_wasm(item) as any;
+		const result = sorter.add_wasm(item);
 		if (result && typeof result === 'object' && 'Output' in result) {
 			if (outputCount === targetOutputIndex) {
 				break;
@@ -182,8 +210,31 @@ export function getBufferStateForOutput(
 		}
 	}
 
+	// console.log({
+	// 	outputCount,
+	// 	targetOutputIndex,
+	// 	itemsProcessed,
+	// 	steps
+	// })
+
+	if (outputCount >= steps) {
+		let ok = true;
+		while (ok) {
+			const result = sorter.empty_buffers_step();
+			ok = result.length > 0;
+			if (targetOutputIndex <= outputCount) {
+				break;
+			}
+			outputCount++;
+		}
+	}
+
+
+
 	const bufferTypedArray = sorter.get_buffers() as number[][];
 	const stringState = sorter.stringstate();
+
+	console.log({ bufferTypedArray })
 
 	return {
 		buffers: bufferTypedArray,
