@@ -13,8 +13,8 @@ pub struct PreSorterConfig {
 
 #[wasm_bindgen]
 pub struct PreSorter {
-    buffers: Box<[Vec<u32>]>,    //size of stacks in buffer positions
-    currentOutput: Vec<u32>, // current size of next output stack
+    buffers: Box<[Vec<u32>]>, //size of stacks in buffer positions
+    currentOutput: Vec<u32>,  // current size of next output stack
     strategy: SortStrategy,
     config: PreSorterConfig,
 }
@@ -38,7 +38,9 @@ impl SortStrategy {
         match self {
             SortStrategy::FirstFitStrategy => {
                 // pass if item within spec
-                if (item != 0 && item >= presorter.config.minheight) || ( item >= presorter.config.maxheight ) {
+                if (item != 0 && item >= presorter.config.minheight)
+                    || (item >= presorter.config.maxheight)
+                {
                     return [SortAction::Pass, SortAction::Output].into();
                 }
 
@@ -69,7 +71,7 @@ impl SortStrategy {
                     return actions.into_boxed_slice();
                 } else {
                     // no sum found, try to add to buffer
-                    for (i, buffer) in buffers.iter().enumerate()  {
+                    for (i, buffer) in buffers.iter().enumerate() {
                         if *buffer == 0 {
                             actions.push(SortAction::AddTo(i));
                             return actions.into_boxed_slice();
@@ -79,7 +81,7 @@ impl SortStrategy {
                     // try to switch with other larger buffer
                     let maxbuffer = buffers.iter().enumerate().max_by(|a, b| a.1.cmp(b.1));
                     if let Some(maxbuf) = maxbuffer {
-                        if *maxbuf.1 > item{
+                        if *maxbuf.1 > item {
                             actions.push(SortAction::Pop(maxbuf.0));
                             actions.push(SortAction::AddTo(maxbuf.0));
                             actions.push(SortAction::Output);
@@ -172,32 +174,32 @@ impl PreSorter {
         return sorter;
     }
 
-    pub fn getBufferSizes(& self) -> Box<[u32]>{
-        let sizes : Vec<u32> = self.buffers.iter().map(|b| b.iter().sum()).collect();
+    pub fn getBufferSizes(&self) -> Box<[u32]> {
+        let sizes: Vec<u32> = self.buffers.iter().map(|b| b.iter().sum()).collect();
         return sizes.into_boxed_slice();
     }
 
-    fn getBufferSize(&self, ind: usize) -> u32{
+    fn getBufferSize(&self, ind: usize) -> u32 {
         return self.buffers[ind].iter().sum();
     }
 
-    #[wasm_bindgen]
-    pub fn add_wasm(&mut self, item: u32) -> Result<JsValue, JsValue> {
-        let result = self.add(item);
-        return Ok(serde_wasm_bindgen::to_value(&result)?);
-    }
+    // #[wasm_bindgen]
+    // pub fn add_wasm(&mut self, item: u32) -> Result<JsValue, JsValue> {
+    //     let result = self.add(item);
+    //     return Ok(serde_wasm_bindgen::to_value(&result)?);
+    // }
 
-    pub fn add_wasm2(&mut self, item: u32) -> Option<Box<[u32]>>{
+    pub fn add_wasm2(&mut self, item: u32) -> Option<Box<[u32]>> {
         let result = self.add(item);
         match result {
             AddResult::Output(o) => {
                 return Some(o);
             }
-            _ => None
+            _ => None,
         }
     }
 
-    fn push_buffer(&mut self, ind: usize){
+    fn push_buffer(&mut self, ind: usize) {
         self.currentOutput.extend(self.buffers[ind].iter());
         self.buffers[ind].clear();
     }
@@ -209,7 +211,12 @@ impl PreSorter {
         let mut bufsizes = self.getBufferSizes();
 
         for action in actions {
-            print!("{} - {:?}: {}", item, action, self.currentOutput.iter().sum::<u32>());
+            print!(
+                "{} - {:?}: {}",
+                item,
+                action,
+                self.currentOutput.iter().sum::<u32>()
+            );
             match action {
                 SortAction::AddTo(bufind) => {
                     assert!(bufsizes[bufind] == 0);
@@ -246,7 +253,11 @@ impl PreSorter {
 
     #[wasm_bindgen]
     pub fn get_buffers(&self) -> Result<JsValue, JsValue> {
-        let r : Vec<Box<[u32]>> = self.buffers.iter().map(|b| b.clone().into_boxed_slice()).collect();
+        let r: Vec<Box<[u32]>> = self
+            .buffers
+            .iter()
+            .map(|b| b.clone().into_boxed_slice())
+            .collect();
         return Ok(serde_wasm_bindgen::to_value(&r)?);
     }
 
@@ -276,23 +287,26 @@ impl PreSorter {
         self.currentOutput.clear();
     }
 
-    pub fn empty_buffers_step(&mut self) -> Box<[u32]>{
+    pub fn empty_buffers_step(&mut self) -> Box<[u32]> {
         let mut outputs: Vec<Box<[u32]>> = Vec::new();
 
-        for buffer in self.buffers.iter_mut(){
-            if self.currentOutput.iter().sum::<u32>() + buffer.iter().sum::<u32>() <= self.config.maxheight{
-                self.currentOutput.extend_from_slice(&buffer.clone().into_boxed_slice());
+        for buffer in self.buffers.iter_mut() {
+            if self.currentOutput.iter().sum::<u32>() + buffer.iter().sum::<u32>()
+                <= self.config.maxheight
+            {
+                self.currentOutput
+                    .extend_from_slice(&buffer.clone().into_boxed_slice());
                 buffer.clear();
             }
         }
 
-        if self.currentOutput.iter().sum::<u32>() > 0{
+        if self.currentOutput.iter().sum::<u32>() > 0 {
             let out = self.currentOutput.clone().into_boxed_slice();
             self.currentOutput.clear();
             return out;
-        }else{
-            for buffer in self.buffers.iter_mut(){
-                if buffer.iter().sum::<u32>() > 0{
+        } else {
+            for buffer in self.buffers.iter_mut() {
+                if buffer.iter().sum::<u32>() > 0 {
                     self.currentOutput.extend(buffer.clone().into_boxed_slice());
                     buffer.clear();
                     let out = self.currentOutput.clone().into_boxed_slice();
@@ -308,14 +322,24 @@ impl PreSorter {
     }
 }
 
-impl PreSorter{
-    pub fn empty_buffers(&mut self) -> Vec<Box<[u32]>>{
+impl PreSorter {
+    pub fn empty_buffers(&mut self) -> Vec<Box<[u32]>> {
         let mut outputs: Vec<Box<[u32]>> = Vec::new();
 
-        while self.buffers.iter().map(|b| b.iter().sum::<u32>()).min().unwrap_or(0) > 0{
-            for buffer in self.buffers.iter_mut(){
-                if self.currentOutput.iter().sum::<u32>() + buffer.iter().sum::<u32>() <= self.config.maxheight{
-                    self.currentOutput.extend_from_slice(&buffer.clone().into_boxed_slice());
+        while self
+            .buffers
+            .iter()
+            .map(|b| b.iter().sum::<u32>())
+            .min()
+            .unwrap_or(0)
+            > 0
+        {
+            for buffer in self.buffers.iter_mut() {
+                if self.currentOutput.iter().sum::<u32>() + buffer.iter().sum::<u32>()
+                    <= self.config.maxheight
+                {
+                    self.currentOutput
+                        .extend_from_slice(&buffer.clone().into_boxed_slice());
                     buffer.clear();
                 }
             }
@@ -324,8 +348,8 @@ impl PreSorter{
             self.currentOutput.clear();
         }
 
-        for buffer in self.buffers.iter_mut(){
-            if buffer.iter().sum::<u32>() > 0{
+        for buffer in self.buffers.iter_mut() {
+            if buffer.iter().sum::<u32>() > 0 {
                 outputs.push(buffer.clone().into_boxed_slice());
                 buffer.clear();
             }
@@ -335,8 +359,6 @@ impl PreSorter{
         return outputs;
     }
 }
-
-
 
 pub fn simulate_random(steps: u64) {
     let mut env: PreSorter = PreSorter::new(4, 30, 25, 20, SortStrategy::FirstFitStrategy);

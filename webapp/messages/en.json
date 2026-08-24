@@ -82,5 +82,10 @@
 	"chart_unsatisfactory_title": "Unsatisfactory (< 20)",
 	"chart_scroll_aria": "Scroll chart horizontally",
 	"invalid_xlsx_file": "Invalid XLSX file",
-	"no_valid_worksheet": "No valid worksheet found in the Excel file"
+	"no_valid_worksheet": "No valid worksheet found in the Excel file",
+	"unsatisfactory": "unsatisfactory",
+	"satisfactory": "satisfactory",
+	"toolow": "too low",
+	"toohigh": "too low",
+	"stopper": "stopper"
 }

@@ -201,12 +201,12 @@ export function getBufferStateForOutput(
 
 	for (const item of rawSequence) {
 		itemsProcessed++;
-		const result = sorter.add_wasm(item);
-		if (result && typeof result === 'object' && 'Output' in result) {
-			if (outputCount === targetOutputIndex) {
+		const result = sorter.add_wasm2(item);
+		if (result instanceof Uint32Array) {
+      outputCount++;
+			if (outputCount >= targetOutputIndex + 1) {
 				break;
 			}
-			outputCount++;
 		}
 	}
 
@@ -216,8 +216,8 @@ export function getBufferStateForOutput(
 	// 	itemsProcessed,
 	// 	steps
 	// })
-
-	if (outputCount >= steps) {
+  if (outputCount <= targetOutputIndex) {
+    console.log("emptying buffers")
 		let ok = true;
 		while (ok) {
 			const result = sorter.empty_buffers_step();

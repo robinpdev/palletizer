@@ -30,7 +30,7 @@
 <div class="industrial-app-container">
 	<header class="industrial-header">
 		<div class="header-brand">
-			<span class="brand-badge">{m.brand_badge()}</span>
+			<span class="brand-badge">{m.brand_badge()} v2026.8.24.1</span>
 			<h1 class="brand-title">{m.brand_title()}</h1>
 		</div>
 		<nav class="header-nav">

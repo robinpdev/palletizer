@@ -35,7 +35,7 @@
 	"min_max_stack_size": "MIN / MAX STAPELGROOTTE",
 	"global_height_boundaries": "Globale hoogtegrenzen",
 	"avg_stack_height": "GEM. STAPELHOOGTE",
-	"magazines_per_stack": "Magazijnen per stapel",
+	"magazines_per_stack": "Magazines per stapel",
 	"filter_placeholder": "FILTER PALLETTEN OF STAPELGROOTTEN...",
 	"show_unsatisfactory": "ALLEEN NIET-VOLDOENDE PALLETTEN TONEN (< 20)",
 	"no_pallets_match": "GEEN PALLETTEN VOLDOEN AAN DE HUIDIGE FILTERCRITERIA.",
@@ -55,7 +55,7 @@
 	"collapse_inspector": "Inspector inklappen",
 	"close_inspector": "Inspector sluiten",
 	"output_height": "OUTPUTHOOGTE:",
-	"magazines": "MAGAZIJNEN",
+	"magazines": "MAGAZINES",
 	"status": "STATUS:",
 	"unsatisfactory_status": "NIET-VOLDOENDE (< 20)",
 	"satisfactory_status": "VOLDOENDE (≥ 20)",
@@ -64,7 +64,7 @@
 	"buffer_positions_state": "BUFFERPOSITIES STATUS (4 SLOTS)",
 	"buffer_slot": "BUFFER #{number}",
 	"empty_available": "LEEG (BESCHIKBAAR)",
-	"magazines_stacked": "{count} MAGAZIJNEN GESTAPELD",
+	"magazines_stacked": "{count} MAGAZINES GESTAPELD",
 	"raw_rust_state": "RAW RUST PRE-SORTER GEHEUGENSTATUS",
 	"no_buffer_data": "Geen ruwe-sequentiegegevens beschikbaar voor deze palletoutput.",
 	"prev_output": "VORIGE OUTPUT",
@@ -82,5 +82,11 @@
 	"chart_unsatisfactory_title": "Niet-voldoende (< 20)",
 	"chart_scroll_aria": "Diagram horizontaal scrollen",
 	"invalid_xlsx_file": "Ongeldig XLSX-bestand",
-	"no_valid_worksheet": "Geen geldig werkblad gevonden in het Excel-bestand"
+	"no_valid_worksheet": "Geen geldig werkblad gevonden in het Excel-bestand",
+	"unsatisfactory": "onvoldoende",
+	"satisfactory": "voldoende",
+	"toolow": "te laag",
+	"toohigh": "te hoog",
+	"stopper": "stopper"
+
 }

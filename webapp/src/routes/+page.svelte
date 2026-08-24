@@ -14,6 +14,7 @@
 	import ChevronRight from 'carbon-icons-svelte/lib/ChevronRight.svelte';
 	import ChevronUp from 'carbon-icons-svelte/lib/ChevronUp.svelte';
 	import ChevronDown from 'carbon-icons-svelte/lib/ChevronDown.svelte';
+	import { PersistentState } from '@friendofsvelte/state';
 
 	import {
 		processExcelFile,
@@ -45,15 +46,15 @@
 	let inspectorBufferState = $state<BufferState | null>(null);
 
 	let nbuffers: number = $state(4);
-	let maxheight: number = $state(30);
+	let maxheight = new PersistentState('maxheight', 30, 'localStorage');
 	let targetheight: number = $state(25);
-	let minheight: number = $state(20);
+	let minheight = new PersistentState('minheight', 20, 'localStorage');
 	let strategy: SortStrategy = $state(SortStrategy.FirstFitStrategy);
 
-	let overallStats = $derived(calculateOverallStats(pallets, minheight));
+	let overallStats = $derived(calculateOverallStats(pallets, minheight.current));
 
-	/* 
-	
+	/*
+
 	nbuffers: u32,
         maxheight: u32,
         targetheight: u32,
@@ -67,14 +68,14 @@
 
 	function updateHeightValue(kind: 'min' | 'max', delta: number) {
 		if (kind === 'min') {
-			const nextValue = clampHeightValue(minheight + delta);
-			minheight = Math.min(nextValue, maxheight);
+			const nextValue = clampHeightValue(minheight.current + delta);
+			minheight.current = Math.min(nextValue, maxheight.current);
 			if (maxheight < minheight) {
 				maxheight = minheight;
 			}
 		} else {
-			const nextValue = clampHeightValue(maxheight + delta);
-			maxheight = Math.max(nextValue, minheight);
+			const nextValue = clampHeightValue(maxheight.current + delta);
+			maxheight.current = Math.max(nextValue, minheight.current);
 			if (minheight > maxheight) {
 				minheight = maxheight;
 			}
@@ -89,14 +90,14 @@
 
 		const clampedValue = clampHeightValue(parsedValue);
 		if (kind === 'min') {
-			minheight = Math.min(clampedValue, maxheight);
-			if (maxheight < minheight) {
-				maxheight = minheight;
+			minheight.current = Math.min(clampedValue, maxheight.current);
+			if (maxheight.current < minheight.current) {
+				maxheight.current = minheight.current;
 			}
 		} else {
-			maxheight = Math.max(clampedValue, minheight);
-			if (minheight > maxheight) {
-				minheight = maxheight;
+			maxheight.current = Math.max(clampedValue, minheight.current);
+			if (minheight.current > maxheight.current) {
+				minheight.current = maxheight.current;
 			}
 		}
 	}
@@ -139,9 +140,9 @@
 			pallets = await processExcelFile(
 				file,
 				nbuffers,
-				maxheight,
+				maxheight.current,
 				targetheight,
-				minheight,
+				minheight.current,
 				strategy
 			);
 		} catch (err: any) {
@@ -180,7 +181,7 @@
 					[20, 21, 24, 28, 29, 23, 22, 25, 19, 15, 18, 27]
 				];
 
-				pallets = await processSequences(demoSeqs, nbuffers, maxheight, targetheight, minheight, strategy);
+				pallets = await processSequences(demoSeqs, nbuffers, maxheight.current, targetheight, minheight.current, strategy);
 			} catch (err: any) {
 				errorMessage = m.demo_error({ message: err?.message || err });
 			} finally {
@@ -202,9 +203,9 @@
 				pallet.rawSequence,
 				stackIndex,
 				nbuffers,
-				maxheight,
+				maxheight.current,
 				targetheight,
-				minheight,
+				minheight.current,
 				strategy,
 				pallet.steps
 			);
@@ -248,7 +249,7 @@
 			</span>
 		</div>
 		<div class="specs-pill">
-			Min / Max: {minheight} / {maxheight}
+			Min / Max: {minheight.current} / {maxheight.current}
 		</div>
 	</section>
 
@@ -285,7 +286,7 @@
 								inputmode="numeric"
 								min="1"
 								max="100"
-								value={minheight}
+								value={minheight.current}
 								oninput={(event) =>
 									handleHeightInput('min', (event.currentTarget as HTMLInputElement).value)}
 							/>
@@ -320,7 +321,7 @@
 								inputmode="numeric"
 								min="1"
 								max="100"
-								value={maxheight}
+								value={maxheight.current}
 								oninput={(event) =>
 									handleHeightInput('max', (event.currentTarget as HTMLInputElement).value)}
 							/>
@@ -534,8 +535,8 @@
 									inspectorPalletId={inspectorPallet?.id ?? null}
 									{inspectorStackIndex}
 									onselect={(index) => openBufferInspector(pallet, index)}
-									{minheight}
-									{maxheight}
+									minheight={minheight.current}
+									maxheight={maxheight.current}
 								/>
 							</div>
 
@@ -555,7 +556,7 @@
 												<span
 													class="inspector-collapsed-summary"
 													class:alert-text={arraysum(inspectorPallet.stacks[inspectorStackIndex]) <
-														minheight}
+														minheight.current}
 													>{m.height()}
 													{arraysum(inspectorPallet.stacks[inspectorStackIndex])}</span
 												>
@@ -595,7 +596,7 @@
 														class="s-value"
 														class:alert-text={arraysum(
 															inspectorPallet.stacks[inspectorStackIndex]
-														) < minheight}
+														) < minheight.current}
 													>
 														{arraysum(inspectorPallet.stacks[inspectorStackIndex])}
 														{m.magazines()}
@@ -603,10 +604,12 @@
 												</div>
 												<div class="summary-item">
 													<span class="s-label">{m.status()}</span>
-													{#if arraysum(inspectorPallet.stacks[inspectorStackIndex]) < minheight}
-														<Tag type="red" size="sm">{m.unsatisfactory_status()}</Tag>
+													{#if arraysum(inspectorPallet.stacks[inspectorStackIndex]) < minheight.current}
+														<Tag type="red" size="sm">{m.unsatisfactory()} ({m.toolow()})</Tag>
+													{:else if arraysum(inspectorPallet.stacks[inspectorStackIndex]) > maxheight.current}
+													    <Tag type="red" size="sm">{m.unsatisfactory()} ({m.toohigh()})</Tag>
 													{:else}
-														<Tag type="green" size="sm">{m.satisfactory_status()}</Tag>
+														<Tag type="green" size="sm">{m.satisfactory()}</Tag>
 													{/if}
 												</div>
 												{#if inspectorBufferState}
@@ -633,11 +636,11 @@
 																	<span class="slot-title"
 																		>{m.buffer_slot({ number: bufIdx + 1 })}</span
 																	>
-																	<span class="slot-count">{bufHeight} / {maxheight}</span>
+																	<span class="slot-count">{bufHeight} / {maxheight.current}</span>
 																</div>
 																<div class="slot-gauge-track">
 																	{#each bundles as bufHeight, bundleIdx (bundleIdx)}
-																		{@const fillPercent = (bufHeight / maxheight) * 100}
+																		{@const fillPercent = (bufHeight / maxheight.current) * 100}
 																		<div
 																			class="slot-gauge-fill"
 																			style="width: {fillPercent}%;"
